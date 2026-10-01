@@ -1,0 +1,9 @@
+# Ignorar todo lo que está en la raíz
+/*
+# Excepto el propio .gitignore
+!.gitignore
+# Excepto SKILL.md
+!/SKILL.md
+# Excepto el directorio memory-bank y su contenido
+!/memory-bank/
+!/memory-bank/**
