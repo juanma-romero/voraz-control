@@ -37,5 +37,3 @@ Construir un sistema de gestión integral de un comercio de bocaditos y empanada
 - Ver mensajes pendientes de contestar.
 - Resumen del estado de una conversación.
 
-### 7. Facturación Electrónica 🔄 Pendiente (Efactura)
-- Generación de facturas electrónicas (SIFEN Paraguay) integrada al sistema.

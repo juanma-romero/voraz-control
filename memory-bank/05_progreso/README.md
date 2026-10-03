@@ -1,6 +1,6 @@
 # Progreso del Proyecto Voraz
 
-> Última actualización: 2026-05-11
+> Última actualización: 2026-10-02
 
 ---
 
@@ -14,7 +14,6 @@
 | erp-service Python/FastAPI | ✅ | Capa de integración con ERPNext |
 | ERPNext | ✅ | ERP en producción, fuente de verdad para pedidos e inventario |
 | MongoDB | ✅ | Persistencia de conversaciones y estados |
-| Efactura | 🔄 | Facturación electrónica SIFEN Paraguay |
 
 ---
 
@@ -51,7 +50,7 @@
 | `get_sales_by_product` | "productos más vendidos este mes", "qué combo se vendió más" |
 | `get_pending_orders` | "pedidos pendientes", "cuántos pedidos hay sin entregar" |
 
-**Modelo:** `llama-3.3-70b-versatile` (Groq plan pago) · Fallback: `gemini-2.5-flash-lite`
+**Modelo:** `openai/gpt-oss-120b` (Groq) · Fallback: `gemini-flash-lite-latest` (Google AI Studio)
 
 ---
 

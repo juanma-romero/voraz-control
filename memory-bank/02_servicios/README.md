@@ -16,11 +16,11 @@ Este documento describe los servicios individuales que componen el sistema Voraz
 ## 2. IA Service (Asistente de Inteligencia Artificial)
 
 - **Descripción**: Un servicio dedicado a proporcionar capacidades de IA para entender y responder a las interacciones de los usuarios.
-- **Tecnologías Clave**: Python, FastAPI, Google GenAI.
+- **Tecnologías Clave**: Python, FastAPI, Proveedores IA: Groq, Google AI Studio.
 - **Funciones Principales**:
     - **Análisis de Conversaciones**: Extrae intenciones, entidades y resúmenes de los mensajes de los clientes.
-    - **Auditoría de Pedidos**: Valida las notas de los administradores contra el historial del chat para prevenir errores de carga antes de enviarlos al ERP.
-    - **Asistencia Inteligente**: Ayuda a automatizar respuestas y a identificar necesidades específicas del cliente para flujos de negocio.
+    - **Auditoría de Pedidos**: Valida las notas de los administradores contra el historial del chat para prevenir errores en la carga antes de enviarlos al ERP.
+    - **Asistencia Inteligente**: Ayuda a automatizar respuestas y a identificar necesidades específicas del cliente para generar flujos de negocio.
 - **Comunicación**: Expone una API REST para ser consumida por el Backend.
 
 ## 3. ERPNext (ERP)
@@ -45,18 +45,7 @@ Este documento describe los servicios individuales que componen el sistema Voraz
     - **Manejo Contable Avanzado:** Generar `Delivery Notes` para pedidos finalizados, gestionar cancelaciones y revertir estados (`docstatus: 2`) capturando errores específicos.
 - **Comunicación**: Expone una API REST (FastAPI) consumida por el Backend (Node.js) de forma síncrona y asíncrona.
 
-## 5. Efactura (Facturación Electrónica) (no implementado aun)
-
-- **Descripción**: Una aplicación especializada en la gestión de la facturación electrónica conforme a las regulaciones de SIFEN en Paraguay.
-- **Tecnologías Clave**: Python (FastAPI para backend), React (para frontend), PostgreSQL (para persistencia de facturas).
-- **Funciones Principales**:
-    - Generación, firma digital y transmisión de Documentos Electrónicos (DE) a SIFEN.
-    - Gestión del ciclo de vida de las facturas (estados, anulaciones).
-    - Generación de la representación gráfica (KuDE en PDF).
-- **Comunicación**: Expone una API REST que puede ser consumida por el Backend para automatizar la emisión de facturas.
-- **Documentación Detallada**: Los detalles técnicos y operativos de Efactura se encuentran en `efactura/Memory-Bank/memoryBank.md` y otros documentos relacionados dentro de la carpeta `efactura/Memory-Bank/`.
-
-## 6. Agente
+## 5. Agente
 - **Descripción**: Sistema de agentes de IA basado en *Function Calling* (Groq). Permite al administrador realizar consultas en lenguaje natural desde WhatsApp. El agente interpreta la consulta, selecciona la "tool" adecuada, la ejecuta y formula una respuesta en lenguaje natural formateada para WhatsApp.
 - **Comando de activación**: `/consultar [texto libre]` (aliases: `/informe`, `/reporte`, `/info`)
 - **Modelo**: `llama-3.3-70b-versatile` (Groq plan pago) · Fallback: `gemini-2.5-flash-lite`

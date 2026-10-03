@@ -16,7 +16,6 @@
 *   **chat** Chatwoot (todavia no implementado).
 *   **erp-service:** Servidor fastapi . Coneccion a ErpNext.
 *   **frappe_docker:** sistema de gestion frappe/erpNext, version 16
-*   **efactura:** sistema de facturacion electronica (no esta implementado).
 *   **Base de datos:** Seervicio externo de Mongodb (Atlas) para guardar mensajes de clientes
 *   **Infraestructura:** VM de GCP, os y maquina: Ubuntu 24.04 LTS e2-standard-2 (8GB RAM), Docker.
 *   **Librerías/Frameworks Clave:** Baileys, Frappe, Node/Express, Fast Api, MongoDB.
@@ -27,10 +26,10 @@
 Antes de sugerir cualquier cambio, analizar logs o escribir código, debes seguir estrictamente estos pasos de inicialización de contexto:
 
 1. **Consulta el Memory Bank:** Lee siempre el RESUMEN del archivo README.md en la carpeta `/memory-bank/02-servicios` en la raíz del proyecto.
-   - En backend/backend tienes un README.md con el detalle del servicio backend orquestador que es el mas complejo y mas usado
+   - En el directorio `/backend` tienes un backend-README.md con el detalle del servicio backend orquestador que es el mas complejo y mas usado
 
 2. **Entorno Actual:**
-    - **Producción:** Se ejecuta en contenedores Docker montados en el servidor en vivo (`https://vorazadmin.site`). **Nunca debes modificar código directamente en producción** a menos que el usuario lo solicite de forma explícita. Todo cambio debe diseñarse para realizarse en Local y desplegarse mediante Git. Puedes usar curl o script para realizar tests
+    - **Local:** cada servicio se corre por separado (pendiente!: poder correr todos los servicios del mismo modo que en produccion, usando Docker)
 
 ---
 
