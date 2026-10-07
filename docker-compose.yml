@@ -1,0 +1,79 @@
+
+services:
+  backend:
+    build: ./backend/backend  # Ruta a la carpeta que contiene el Dockerfile
+    container_name: voraz_backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:      
+      - MONGODB_URI=${MONGODB_URI}
+      - PORT=3000
+      - NODE_ENV="production"
+      - IA_SERVICE_URL=http://ia_service:8000
+      - ERP_SERVICE_URL=http://erp_service:8001
+      - DASHWHAT_URL=http://dashwhat2:8880
+      # Conexión interna a Chatwoot:
+      - CHATWOOT_URL=http://rails:3000
+      - CHATWOOT_ACCOUNT_ID=1
+      - CHATWOOT_INBOX_IDENTIFIER=${CHATWOOT_INBOX_IDENTIFIER}
+      - CHATWOOT_API_TOKEN=${CHATWOOT_API_TOKEN}
+      - CHATWOOT_INBOX_ID=4
+    volumes:
+      - ./backend/backend:/usr/src/app 
+    command: sh -c "npm install && node index.js"  
+    depends_on:
+      - ia_service
+      - erp_service
+
+  # Servicio ERP con FastAPI
+  erp_service:
+    build: ./erp-service
+    container_name: erp_service_fastapi
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./erp-service:/app
+    env_file:
+      - ./erp-service/.env
+    restart: always
+
+  # Servicio de IA con FastAPI
+  ia_service:
+    build: ./ia-service
+    container_name: ia_service_fastapi
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ia-service:/app
+      - ./erp-service:/erp-service
+    env_file:
+      - ./ia-service/.env
+    environment:
+      # Sobrescribe el .env local: en Docker los servicios se comunican por nombre de servicio
+      - ERP_SERVICE_URL=http://erp_service:8001
+    restart: always
+
+  # dashWhat2 servicio Baileys
+  dashwhat2: 
+    build: 
+      context: ./dashWhat2/api  # Ajusta esta ruta según dónde esté la carpeta 'api' respecto al compose
+    container_name: dashwhat2
+    restart: always
+    ports:
+      - "8880:8880"
+    environment:
+      - BACKEND_URL=http://backend:3000/api/messages  # Nombre del servicio backend y su puerto interno
+      - SELF_URL=http://dashwhat2:8880
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+    volumes:
+      - ./dashWhat2/api/baileys_auth_info:/app/baileys_auth_info  # Persistencia de sesión WhatsApp (Baileys)
+#      - ./dashWhat2/api/phones.json:/app/phones.json             # Filtro de teléfonos
+
+# Unir todos los servicios de Voraz a la red compartida de Frappe y Chatwoot
+networks:
+  default:
+    name: frappe_docker_default
+    external: true

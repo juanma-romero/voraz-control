@@ -1,9 +1,17 @@
-# Ignorar todo lo que está en la raíz
+# Ignorar todo lo que está en la raíz.
+# Los repos de cada servicio viven adentro y tienen su propio .git, así que no
+# se versionan desde acá.
 /*
-# Excepto el propio .gitignore
+# El .gitignore sí se versiona
 !.gitignore
-# Excepto SKILL.md
-!/SKILL.md
-# Excepto el directorio memory-bank y su contenido
-!/memory-bank/
-!/memory-bank/**
+
+# Documentación y configuración del proyecto (esto SÍ se versiona)
+!/AGENTS.md
+!/docs/
+!/docs/**
+!/docker-compose.yml
+!/docker-compose.local.yml
+!/dev.sh
+!/.env.example
+
+# Los .env reales (.env, .env.local) quedan ignorados por /* — nunca se versionan.

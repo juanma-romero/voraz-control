@@ -1,0 +1,77 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Override SOLO para desarrollo local.  NO se usa solo:
+#  siempre acompañando al compose base (que es el de producción).
+#
+#      ./dev.sh up            ← atajo (arma el comando completo)
+#
+#  La estructura de carpetas local espeja la de la VM, así que los `build` y
+#  los `volumes` del compose base valen TAL CUAL y acá no se redefinen.
+#
+#  Qué cambia respecto de producción:
+#    · red propia 'voraz_local' (en prod es 'frappe_docker_default', externa a Compose)
+#    · puertos remapeados: localhost:3000 ya está ocupado en esta PC
+#    · contenedores con sufijo _local  → imposible confundirlos con los de prod
+#    · sin dashwhat2: es Baileys, y una segunda sesión de WhatsApp puede invalidar
+#      la de producción. Para probar mensajería se usa un simulador (pendiente).
+#    · Mongo local: NODE_ENV=local → db.js usa la base 'test' (en prod 'dash')
+#    · MCP de ERPNext apagado en ia-service
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  backend:
+    container_name: voraz_backend_local
+    restart: "no"
+    ports:
+      - "3100:3000"
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      PORT: 3000
+      # db.js: NODE_ENV=local → base 'test'   (producción usa 'dash')
+      NODE_ENV: local
+      IA_SERVICE_URL: http://ia_service:8000
+      ERP_SERVICE_URL: http://erp_service:8001
+      DASHWHAT_URL: http://dashwhat2:8880
+      # Chatwoot NO corre en local: las rutas que lo usan fallan con error de DNS.
+      CHATWOOT_URL: http://chatwoot:3000
+      CHATWOOT_ACCOUNT_ID: 1
+      CHATWOOT_INBOX_IDENTIFIER: local-dev
+      CHATWOOT_API_TOKEN: local-dev
+      CHATWOOT_INBOX_ID: 4
+    depends_on:
+      - ia_service
+      - erp_service
+      - mongo
+
+  erp_service:
+    container_name: erp_service_fastapi_local
+    restart: "no"
+    ports:
+      - "8101:8001"
+
+  ia_service:
+    container_name: ia_service_fastapi_local
+    restart: "no"
+    ports:
+      - "8100:8000"
+    environment:
+      # Apaga el MCP de ERPNext (necesita el build/ del server y un ERP real).
+      # Ver ia-service/main.py.
+      ENABLE_MCP: "false"
+
+  # Solo local: el backend hace process.exit(1) si no conecta a Mongo.
+  # Cuando quieras usar tu base de prueba en Atlas, poné la URI en MONGODB_URI
+  # (arriba) y borrá este servicio.
+  mongo:
+    image: mongo:8.0.20
+    container_name: voraz_mongo_local
+    restart: "no"
+    volumes:
+      - mongo_data:/data/db
+
+networks:
+  default:
+    name: voraz_local
+    external: false
+
+volumes:
+  mongo_data:
