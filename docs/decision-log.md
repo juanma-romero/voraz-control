@@ -104,3 +104,31 @@ Cada entrada: **fecha · decisión · por qué · alternativa descartada**.
 - **Por qué**: en local el MCP necesita el `build/` del server y un ERP real que no existen.
   Con el valor por defecto, producción no cambia de comportamiento.
 - **Descartado**: desactivar el MCP solo en local con un parche aparte (divergiría el código).
+
+## 2026-10-07 — La VM se sincroniza por pull, con respaldo previo
+
+- **Decisión**: sincronizar la VM con `git pull --ff-only`, respaldando antes lo que no está
+  versionado (`docker-compose.yml`, `.env`) y moviendo el compose a un lado durante el pull.
+- **Por qué**: el commit entrante agrega un `docker-compose.yml` versionado y el de la VM
+  estaba sin versionar: Git se niega a pisar archivos no rastreados. Con el respaldo previo
+  se pudo verificar que el resultado era **idéntico** (mismo hash) y que producción no
+  cambiaba.
+- **Descartado**: forzar el checkout (habría pisado el compose de producción a ciegas).
+
+## 2026-10-07 — Los cambios sueltos de `dashWhat2` van a una rama, no a `main`
+
+- **Decisión**: los 4 archivos modificados a mano en la VM se guardan en la rama
+  `respaldo-vm-dashwhat2`, publicada en GitHub. `main` se deja en el refactor que ya estaba
+  en `origin` (d39b6bd).
+- **Por qué**: son dos trabajos distintos. Lo de la VM son parches para que Baileys conecte
+  desde ese servidor; lo de `main` es el refactor posterior del usuario. Meter lo de la VM en
+  `main` habría pisado trabajo más nuevo.
+- **Descartado**: commitear directo en `main` (perdía el refactor) o dejarlos sin commitear
+  (se perdían en el próximo pull).
+
+## 2026-10-07 — NO se rotan el token de Chatwoot ni la contraseña de MongoDB
+
+- **Decisión**: no rotar esas credenciales; se elimina la tarea del backlog.
+- **Por qué**: decisión explícita del usuario, que asume el riesgo. Los valores ya no están
+  en texto plano en el `docker-compose.yml` (se movieron a `~/voraz/.env`).
+- **Descartado**: rotarlas (requiere acceso a los paneles de Chatwoot y MongoDB Atlas).

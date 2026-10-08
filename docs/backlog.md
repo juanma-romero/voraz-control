@@ -118,14 +118,17 @@ para operaciones contables e inventario.
       (hoy la integración corre con el usuario más privilegiado del ERP).
 - [ ] **Conectar ERPNext en local** (instancia de prueba o ERPNext local) para poder
       testear el mapeo contable antes de producción.
-- [ ] **Rotar el token de Chatwoot y la contraseña de MongoDB Atlas** (estuvieron en texto
-      plano en el compose; ya se movieron a `.env`, pero conviene rotarlos).
 - [ ] **Simulador de mensajería** para probar el flujo de WhatsApp sin correr Baileys.
 - [ ] **Mongo en local** contra la base de prueba `test` (hoy se usa un Mongo en contenedor).
 - [ ] **Conectar Chatwoot** en local o simularlo.
-- [ ] Versionar `docker-compose.yml`, `docker-compose.local.yml`, `dev.sh` y `.env.example`
-      en el repo `voraz-control` (hoy existen en disco pero el `.gitignore` los excluye).
-- [ ] Resolver la divergencia de `voraz-control` entre local y la VM.
-- [ ] Resolver `dashWhat2`: hay **4 archivos modificados solo en la VM**
-      (`api/Dockerfile`, `api/main.js`, `api/package.json`, `api/.dockerignore`) que no
-      existen en git — hay que revisarlos uno por uno y decidir.
+- [x] ~~Versionar `docker-compose.yml`, `docker-compose.local.yml`, `dev.sh` y `.env.example`~~
+      → ya están versionados en `voraz-control` (el `.gitignore` se actualizó).
+- [x] ~~Resolver la divergencia de `voraz-control` entre local y la VM~~ → no era divergencia:
+      la VM estaba 2 commits atrás. Sincronizada.
+- [x] ~~Resolver `dashWhat2`: 4 archivos modificados solo en la VM~~ → guardados en la rama
+      **`respaldo-vm-dashwhat2`** (publicada en GitHub) y la VM quedó sincronizada en `main`.
+      El respaldo tiene los parches de conexión de Baileys (`Platform.MACOS`, browser
+      simulado) y un extractor de texto para mensajes de botones/listas. **Pendiente decidir
+      si se rescata algo de ahí** o se descarta.
+- [x] ~~Resolver la divergencia de `voraz-control` entre local y la VM~~ → no era divergencia:
+      la VM estaba 2 commits atrás. Sincronizada.
