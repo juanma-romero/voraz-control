@@ -15,13 +15,17 @@
 #      la de producción. Para probar mensajería se usa un simulador (pendiente).
 #    · Mongo local: NODE_ENV=local → db.js usa la base 'test' (en prod 'dash')
 #    · MCP de ERPNext apagado en ia-service
+#
+#  OJO con `!override`: Compose CONCATENA las listas (ports, volumes, …) en vez de
+#  reemplazarlas. Sin ese tag, el contenedor intenta bindear el puerto de producción
+#  Y el local a la vez, y falla.
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
   backend:
     container_name: voraz_backend_local
     restart: "no"
-    ports:
+    ports: !override
       - "3100:3000"
     environment:
       MONGODB_URI: mongodb://mongo:27017
@@ -45,13 +49,13 @@ services:
   erp_service:
     container_name: erp_service_fastapi_local
     restart: "no"
-    ports:
+    ports: !override
       - "8101:8001"
 
   ia_service:
     container_name: ia_service_fastapi_local
     restart: "no"
-    ports:
+    ports: !override
       - "8100:8000"
     environment:
       # Apaga el MCP de ERPNext (necesita el build/ del server y un ERP real).
@@ -59,10 +63,12 @@ services:
       ENABLE_MCP: "false"
 
   # Solo local: el backend hace process.exit(1) si no conecta a Mongo.
+  # Se usa 4.4 y NO la 8: MongoDB ≥5 exige instrucciones AVX y el CPU de esta PC
+  # no las tiene (la 8 sale con SIGILL, exit 132).
   # Cuando quieras usar tu base de prueba en Atlas, poné la URI en MONGODB_URI
   # (arriba) y borrá este servicio.
   mongo:
-    image: mongo:8.0.20
+    image: mongo:4.4.18
     container_name: voraz_mongo_local
     restart: "no"
     volumes:
