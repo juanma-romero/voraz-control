@@ -105,5 +105,7 @@ desde WhatsApp.
 
 ## 7. Chatwoot
 
-- Servicio aparte (`~/chats` en la VM; Postgres + Redis, dominio `chat.fabedev.online`).
-- Objetivo: centralizar la atención en múltiples canales. **Pendiente de implementar.**
+- Servicio aparte (`~/chats` en la VM; Postgres + Redis, dominio `chat.vorazadmin.site`,
+  detrás del `nginx-proxy` con TLS).
+- Canales: **WhatsApp** (inbox `Channel::Api`, el único que usa el flujo del stack) y
+  **Facebook** (inbox `Channel::FacebookPage`, conectado 2026-10-08). Instagram: pendiente.

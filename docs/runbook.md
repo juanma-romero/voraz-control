@@ -121,7 +121,7 @@ ssh voraz 'curl -s http://localhost:8001/api/orders/pending | head -c 200'      
 | `~/voraz/.env` (raíz del compose) | `MONGODB_URI`, `CHATWOOT_API_TOKEN`, `CHATWOOT_INBOX_IDENTIFIER`, `CLOUDINARY_*` |
 | `~/voraz/erp-service/.env` | `ERPNEXT_URL`, `ERPNEXT_API_KEY`, `ERPNEXT_API_SECRET` |
 | `~/voraz/ia-service/.env` | Claves de modelos (Google, Groq, OpenRouter) |
-| `~/voraz/chat/.env` | Chatwoot |
+| `~/chats/.env` | Chatwoot |
 
 El `docker-compose.yml` los referencia como `${VAR}`. Los `.env` no se versionan.
 
