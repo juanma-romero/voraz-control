@@ -12,7 +12,10 @@
 #    · puertos remapeados: localhost:3000 ya está ocupado en esta PC
 #    · contenedores con sufijo _local  → imposible confundirlos con los de prod
 #    · sin dashwhat2: es Baileys, y una segunda sesión de WhatsApp puede invalidar
-#      la de producción. Para probar mensajería se usa un simulador (pendiente).
+#      la de producción. Para probar mensajería se usa el simulador de chat:
+#      backend/backend/tests/chat_simulator.html
+#    · erp_service corre un MOCK en memoria (tools/mock-erp/): en local no hay
+#      ERPNext, así arranca sin fallar y los comandos de pedidos funcionan.
 #    · Mongo local: NODE_ENV=local → db.js usa la base 'test' (en prod 'dash')
 #    · MCP de ERPNext apagado en ia-service
 #
@@ -46,11 +49,23 @@ services:
       - erp_service
       - mongo
 
+  # erp_service REAL reemplazado por un MOCK en memoria (ver tools/mock-erp/).
+  # En local no hay ERPNext: el erp-service real arranca pero todas sus llamadas
+  # al ERP fallan. El mock expone la MISMA superficie HTTP, así el backend y
+  # ia_service siguen usando http://erp_service:8001 sin cambiar nada.
+  # Para volver al erp-service real: borrá `build`, `volumes` y `environment`,
+  # y dejá solo container_name + ports.
   erp_service:
-    container_name: erp_service_fastapi_local
+    container_name: erp_service_mock_local
     restart: "no"
+    build: ./tools/mock-erp
     ports: !override
       - "8101:8001"
+    # !override vacía el volume base (./erp-service:/app): si no, taparía el
+    # código del mock copiado dentro de la imagen.
+    volumes: !override []
+    environment:
+      MOCK_ERP_LATENCY_MS: "120"
 
   ia_service:
     container_name: ia_service_fastapi_local

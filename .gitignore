@@ -16,6 +16,10 @@
 !/scripts/
 !/scripts/**
 
+# Herramientas de desarrollo local (mock de erp-service, etc.)
+!/tools/
+!/tools/**
+
 # Los .env reales (.env, .env.local) quedan ignorados por /* — nunca se versionan.
 
 # Cachés de Python
