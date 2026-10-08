@@ -194,9 +194,29 @@ La integración **no usa `Administrator`**. Hay dos usuarios dedicados con permi
 
 Los roles se crearon con `Custom DocPerm` sobre 22 doctypes (ventas, inventario y contabilidad).
 
-> ⚠️ **Pitfall**: crear un `Custom DocPerm` **reemplaza** los permisos estándar de ese doctype, no
-> los amplía. Si se agrega un doctype, hay que crear los dos roles. Y si algo sale mal, borrar
-> los `Custom DocPerm` revierte todo al estado estándar.
+> ⚠️⚠️ **PITFALL CRÍTICO — `Custom DocPerm` PISA los permisos estándar de ese doctype.**
+> Si un DocType tiene **alguna** fila en `tabCustom DocPerm`, Frappe usa esa tabla como **única**
+> fuente de permisos para ese DocType e **ignora por completo** `tabDocPerm` — para **todos** los
+> roles, no solo para el nuevo. Ver `frappe/permissions.py`:
+> ```python
+> doctypes_with_custom_perms = get_doctypes_with_custom_docperms()
+> for p in perms:
+>     if p.parent not in doctypes_with_custom_perms:   # la estándar solo
+>         custom_perms.append(p)                       # cuenta si NO hay custom
+> ```
+> **Consecuencia real (pasó el 2026-10-08):** crear los dos roles sin copiar la matriz estándar
+> dejó a **todos los demás usuarios sin acceso** a los 22 doctypes. Juanma (Sales Manager, System
+> Manager) no podía entrar a ventas. `Administrator` no se ve afectado porque tiene bypass, así
+> que el error es **invisible** desde esa cuenta.
+>
+> **Regla:** al personalizar permisos de un DocType hay que dejar la matriz **completa** (lo
+> estándar **más** lo propio). Es lo mismo que hace la UI de Frappe al «personalizar» permisos.
+> Usar `scripts/roles_erpnext.py`, que copia la estándar antes de agregar los roles.
+>
+> **Cómo repararlo** si ya pasó: `frappe.permissions.copy_perms(doctype)` copia la matriz estándar
+> a la custom (es **aditivo**, no borra). O `frappe.permissions.reset_perms(doctype)`, que borra
+> los `Custom DocPerm` del doctype y devuelve el control a la tabla estándar (pero entonces los
+> roles propios pierden el acceso).
 
 > ⚠️ **Pitfall**: el ORM de Frappe **no persiste** cambios en la tabla `Has Role` (igual que con
 > `api_key`): hay que escribir en la DB directamente.
@@ -217,8 +237,26 @@ probadas son rechazadas, y una de lectura devuelve datos reales.
 
 
 ### Agregar un permiso nuevo
-Agregar el doctype a la lista del script y volver a ejecutarlo (crea los `Custom DocPerm` de los
-dos roles para ese doctype).
+**Usar `scripts/roles_erpnext.py`** (idempotente): define los roles y los doctypes arriba, y
+agregar el nombre del doctype a la lista `DOCTYPES`. El script copia la matriz estándar y después
+los roles propios, así que no hay riesgo de dejar sin permisos a los demás usuarios.
+
+```bash
+# respaldo de la tabla antes de tocarla (siempre)
+docker exec frappe-backend-1 bash -lc 'cd /home/frappe/frappe-bench/sites && ../env/bin/python -c "
+import json,frappe; frappe.init(site=\"vorazadmin.site\"); frappe.connect()
+json.dump(frappe.db.sql(\"select * from \\`tabCustom DocPerm\\`\", as_dict=True), open(\"/tmp/bk.json\",\"w\"), default=str)"'
+docker cp frappe-backend-1:/tmp/bk.json ./
+
+# ejecutar
+docker cp scripts/roles_erpnext.py frappe-backend-1:/tmp/
+docker exec -u root frappe-backend-1 chmod 644 /tmp/roles_erpnext.py
+docker exec frappe-backend-1 bash -lc 'cd /home/frappe/frappe-bench/sites && ../env/bin/python /tmp/roles_erpnext.py'
+```
+
+La salida `VPZ_VERIF` confirma, por doctype, que `integracion@` lee y escribe, que `consulta@`
+solo lee, y que un **usuario estándar** sigue leyendo (esto último es el chequeo que faltaba
+hacer antes y por eso el problema pasó desapercibido).
 
 ### Verificado en producción
 Los 4 flujos críticos pasan con `integracion@`: **crear pedido, cobrar, entregar y cancelar**

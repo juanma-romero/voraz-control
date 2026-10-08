@@ -182,4 +182,25 @@ Cada entrada: **fecha · decisión · por qué · alternativa descartada**.
   `erpnext-mcp-server`, en máquinas distintas y para consumidores distintos (Hermes → el
   asistente; `ia-service` → el agente de WhatsApp). No comparten proceso ni credenciales.
 
+## 2026-10-08 — Incidente: los roles nuevos dejaron sin permisos a los demás usuarios
+
+- **Qué pasó**: al crear los roles `Voraz Lectura` / `Voraz Integracion` con `Custom DocPerm`, la
+  cuenta de Juanma (`xjuanma.romerox@gmail.com`, Sales Manager y System Manager) perdió el acceso
+  a **ventas, inventario y contabilidad**. Solo se notó cuando él lo reportó al entrar al ERP.
+- **Causa**: en Frappe, si un DocType tiene **alguna** fila en `tabCustom DocPerm`, esa tabla pasa
+  a ser la **única** fuente de permisos de ese DocType y `tabDocPerm` se ignora **para todos los
+  roles**. Al escribir solo mis dos roles, quedaron sin permisos los demás. `Administrator` no se
+  ve afectado (tiene bypass), por eso las pruebas —que corría como Administrator o como los dos
+  usuarios nuevos— no lo detectaron.
+- **Por qué se me pasó**: verifiqué la lectura de los usuarios nuevos y la escritura de
+  `integracion@`, pero **nunca verifiqué que un usuario estándar siguiera teniendo acceso**. Ese
+  es el chequeo que ahora hace `scripts/roles_erpnext.py` en su salida `VPZ_VERIF`.
+- **Reparación**: `frappe.permissions.copy_perms(doctype)` por cada uno de los 22 doctypes —
+  copia la matriz estándar a la custom (aditivo). Estado verificado después: Juanma recuperó todo,
+  `consulta@` sigue solo-lectura, `integracion@` mantiene escritura.
+- **Lección**: al personalizar permisos de un DocType hay que dejar la matriz **completa**
+  (estándar + propio), que es lo que hace la UI de Frappe. Y al verificar permisos hay que
+  incluir **siempre un usuario estándar**, no solo los que se están tocando.
+
+
 
