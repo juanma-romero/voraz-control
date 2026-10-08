@@ -17,3 +17,7 @@
 !/scripts/**
 
 # Los .env reales (.env, .env.local) quedan ignorados por /* — nunca se versionan.
+
+# Cachés de Python
+__pycache__/
+*.pyc
