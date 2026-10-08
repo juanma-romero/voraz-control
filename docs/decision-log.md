@@ -132,3 +132,38 @@ Cada entrada: **fecha · decisión · por qué · alternativa descartada**.
 - **Por qué**: decisión explícita del usuario, que asume el riesgo. Los valores ya no están
   en texto plano en el `docker-compose.yml` (se movieron a `~/voraz/.env`).
 - **Descartado**: rotarlas (requiere acceso a los paneles de Chatwoot y MongoDB Atlas).
+
+## 2026-10-08 — Dos usuarios de integración en vez de `Administrator`
+
+- **Decisión**: crear `vorazcde@gmail.com` ("integracion@", rol `Voraz Integracion`, con
+  escritura) para `erp-service`, y `xjuanmax@hotmail.com` ("consulta@", rol `Voraz Lectura`,
+  solo lectura) para el MCP. Los roles se definieron con `Custom DocPerm` sobre 22 doctypes.
+- **Por qué**: `Administrator` es el usuario más privilegiado del ERP — una credencial filtrada
+  daba control total (usuarios, configuración, todas las compañías). Con dos usuarios, la
+  seguridad no depende solo de la whitelist de herramientas del MCP: **aunque la whitelist
+  falle, el ERP rechaza la escritura por permisos**. Defensa en profundidad.
+- **Descartado**: usar roles estándar (ninguno da solo-lectura de todo: `Auditor` cubre cuentas
+  pero no ventas, y `Stock User` escribe en `Delivery Note`).
+- **Nota**: se creó un `Custom DocPerm` por rol y doctype. Hay que recordar que **reemplaza** el
+  set estándar — el primer intento rompió los permisos y hubo que revertir borrándolos.
+
+## 2026-10-08 — Validación de teléfono al crear clientes
+
+- **Hallazgo**: `erp-service` crea el `Customer` con `customer_name = <JID>`,
+  `customer_type = Individual` y `mobile_no = <parte numérica del JID>`. ERPNext **valida que
+  `mobile_no` sea un teléfono real** (`InvalidPhoneNumberError` → 417). Con un JID de prueba no
+  numérico, la creación falla.
+- **Implicancia**: los JID reales de WhatsApp son numéricos, así que funciona; pero cualquier
+  JID no numérico (como los `@lid` de prueba) rompe la creación con un 417 confuso. Vale tenerlo
+  presente al diagnosticar.
+
+## 2026-10-08 — Verificación de los 4 flujos críticos
+
+- **Decisión**: probar crear pedido → cobrar → entregar → cancelar contra producción con
+  `integracion@`, usando un cliente de prueba y limpiando todo al final.
+- **Resultado**: los 4 pasan. Cancelar un pedido **con factura y remito vinculados** da
+  `LinkExistsError` (correcto): hay que cancelar los hijos primero (pago → factura → remito →
+  pedido), y así funciona.
+- **Por qué importa**: confirma que los permisos del rol nuevo alcanzan para toda la operación
+  real, que era el riesgo de migrar desde `Administrator`.
+

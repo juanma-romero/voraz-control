@@ -183,7 +183,33 @@ canónicas, **no** por el ORM.
 
 ---
 
-## 7. Disco y backups
+## 7. Usuarios de integración en ERPNext
+
+La integración **no usa `Administrator`**. Hay dos usuarios dedicados con permisos propios:
+
+| Usuario | Rol | Para qué | Credencial |
+|---|---|---|---|
+| `vorazcde@gmail.com` ("integracion@") | `Voraz Integracion` | **Escritura**: lo usa `erp-service` | `ERPNEXT_API_KEY` / `ERPNEXT_API_SECRET` en `erp-service/.env` |
+| `xjuanmax@hotmail.com` ("consulta@") | `Voraz Lectura` | **Solo lectura**: lo usa el MCP | `MCP_ERPNEXT_API_KEY` / `MCP_ERPNEXT_API_SECRET` en `erp-service/.env`, y en `~/.hermes/.env` |
+
+Los roles se crearon con `Custom DocPerm` sobre 22 doctypes (ventas, inventario y contabilidad).
+
+> ⚠️ **Pitfall**: crear un `Custom DocPerm` **reemplaza** los permisos estándar de ese doctype, no
+> los amplía. Si se agrega un doctype, hay que crear los dos roles. Y si algo sale mal, borrar
+> los `Custom DocPerm` revierte todo al estado estándar.
+
+> ⚠️ **Pitfall**: el ORM de Frappe **no persiste** cambios en la tabla `Has Role` (igual que con
+> `api_key`): hay que escribir en la DB directamente.
+
+### Agregar un permiso nuevo
+Agregar el doctype a la lista del script y volver a ejecutarlo (crea los `Custom DocPerm` de los
+dos roles para ese doctype).
+
+### Verificado en producción
+Los 4 flujos críticos pasan con `integracion@`: **crear pedido, cobrar, entregar y cancelar**
+(probado el 2026-10-08). `consulta@` lee los 22 doctypes y **no puede escribir** (403).
+
+## 8. Disco y backups
 
 - El disco de la VM está **al ~85%** (≈4 GB libres de 29 GB). Antes de builds grandes
   (`docker compose build`), chequear `df -h /`. Si falta espacio:

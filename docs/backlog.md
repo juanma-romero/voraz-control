@@ -114,8 +114,15 @@ para operaciones contables e inventario.
 
 ## Pendientes de infraestructura y proceso
 
-- [ ] **Usuario de integración dedicado** en ERPNext, en vez de `Administrator`
-      (hoy la integración corre con el usuario más privilegiado del ERP).
+- [x] ~~**Usuario de integración dedicado** en ERPNext, en vez de `Administrator`~~
+      → creados `integracion@` (escritura) y `consulta@` (solo lectura), con roles propios.
+      Los 4 flujos críticos verificados con `integracion@` (2026-10-08). Ver `runbook.md` §7.
+- [ ] **Apagar la API key de `Administrator`** (ya no la usa nada; se conserva como rollback
+      unos días).
+- [ ] **MCP de `ia-service`**: hoy hereda las credenciales de `erp-service/.env` (el usuario de
+      **escritura**). Opciones: (a) cambio chico en `mcp_client.py` para que use las `MCP_*`
+      (mantiene las tools MCP en el agente), o (b) `ENABLE_MCP=false` en producción (más simple,
+      el agente pierde las tools MCP).
 - [ ] **Conectar ERPNext en local** (instancia de prueba o ERPNext local) para poder
       testear el mapeo contable antes de producción.
 - [ ] **Simulador de mensajería** para probar el flujo de WhatsApp sin correr Baileys.
