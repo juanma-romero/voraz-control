@@ -25,7 +25,7 @@ para operaciones contables e inventario.
 | MongoDB | ✅ persistencia de conversaciones |
 | Chatwoot | 🔄 no implementado |
 | Efactura (facturación electrónica) | 🔄 no implementado |
-| Stack de desarrollo local | ✅ backend + erp_service + ia_service + Mongo |
+| Stack de desarrollo local | ✅ backend + erp_service (mock) + ia_service + dashwhat_mock + Mongo |
 
 ### Comandos administrativos (completos)
 
@@ -123,9 +123,13 @@ para operaciones contables e inventario.
       **escritura**)~~ → resuelto: usa las `MCP_*` (usuario de consulta) y expone al LLM solo las
       5 herramientas de lectura, con rechazo en `call_tool()`. Verificado contra el contenedor
       (2026-10-08). Ver `runbook.md` §7.
-- [ ] **Conectar ERPNext en local** (instancia de prueba o ERPNext local) para poder
-      testear el mapeo contable antes de producción.
-- [ ] **Simulador de mensajería** para probar el flujo de WhatsApp sin correr Baileys.
+- [x] ~~**Simulador de mensajería** para probar el flujo de WhatsApp sin correr Baileys~~ →
+      hecho: `backend/backend/tests/chat_simulator.html` + `tools/mock-dashwhat/`
+      (loop de entrada **y** salida). Ver `decision-log.md` (2026-10-08).
+- [x] ~~**Conectar ERPNext en local** (instancia de prueba o ERPNext local)~~ → por ahora se usa
+      un **mock** de `erp-service` (`tools/mock-erp/`), que cubre el flujo sin tocar el ERP.
+      Conectar el ERPNext real (instancia local) queda para cuando haga falta testear el mapeo
+      contable. Ver `decision-log.md` (2026-10-08).
 - [ ] **Mongo en local** contra la base de prueba `test` (hoy se usa un Mongo en contenedor).
 - [ ] **Conectar Chatwoot** en local o simularlo.
 - [x] ~~Versionar `docker-compose.yml`, `docker-compose.local.yml`, `dev.sh` y `.env.example`~~
@@ -137,5 +141,3 @@ para operaciones contables e inventario.
       El respaldo tiene los parches de conexión de Baileys (`Platform.MACOS`, browser
       simulado) y un extractor de texto para mensajes de botones/listas. **Pendiente decidir
       si se rescata algo de ahí** o se descarta.
-- [x] ~~Resolver la divergencia de `voraz-control` entre local y la VM~~ → no era divergencia:
-      la VM estaba 2 commits atrás. Sincronizada.

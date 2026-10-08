@@ -19,7 +19,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-readonly SERVICIOS_LOCALES="backend erp_service ia_service mongo"
+readonly SERVICIOS_LOCALES="backend erp_service ia_service dashwhat_mock mongo"
 readonly COMPOSE_ARGS=(-f docker-compose.yml -f docker-compose.local.yml --env-file .env.local)
 
 case "${1:-}" in

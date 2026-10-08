@@ -202,5 +202,39 @@ Cada entrada: **fecha · decisión · por qué · alternativa descartada**.
   (estándar + propio), que es lo que hace la UI de Frappe. Y al verificar permisos hay que
   incluir **siempre un usuario estándar**, no solo los que se están tocando.
 
+## 2026-10-08 — La mensajería se prueba en local con simulador y mocks, sin Baileys ni ERPNext
+
+- **Decisión**: en local **no** se corre `dashWhat2` (Baileys) y **no** se conecta ERPNext.
+  En su lugar se agregaron tres piezas:
+  - `backend/backend/tests/chat_simulator.html` — simulador de chat que arma el mismo payload
+    que Baileys y lo postea a `POST /api/messages`. Tres modos: cliente (4 contactos), admin
+    en su propio chat (comandos `/…`) y admin en el chat de un contacto (frases de agendado).
+  - `tools/mock-erp/` — mock de `erp-service` con la misma superficie HTTP y estado en memoria.
+  - `tools/mock-dashwhat/` — mock de `dashWhat2`: sirve el simulador y recibe los mensajes
+    salientes que el backend manda al cliente/admin (`POST /send-message`), cerrando el loop.
+- **Por qué**: probar el flujo completo (cliente → backend → IA → pedido → confirmación) sin
+  una segunda sesión de WhatsApp —que invalidaría la de producción— y sin instalar ERPNext local.
+- **Descartado**: (a) **empresa de prueba en el ERP de producción** — no aísla (misma base y
+  mismo servidor), la integración **no envía `company`** (usaría la Company por defecto del
+  usuario API), las cuentas contables están hardcodeadas a Voraz y `Custom DocPerm` es por
+  DocType, no por empresa; (b) **ERPNext local** (frappe_docker) — pesado; queda reservado para
+  cuando se necesite la semántica real del ERP.
+
+## 2026-10-08 — Los artefactos de desarrollo local se versionan pero no afectan producción
+
+- **Decisión**: el simulador y los mocks se versionan en `main` (repos `backend` y
+  `voraz-control`), y no se crea una rama aparte.
+- **Por qué**: producción usa **solo** `docker-compose.yml` y reconstruye los servicios que
+  necesita; nunca referencia `tools/`, `backend/backend/tests/` ni `docker-compose.local.yml`.
+  Los archivos llegan al disco de la VM pero son **inertes**. Es el mismo modelo con el que ya
+  conviven `docker-compose.local.yml`, `dev.sh` y `.env.example`.
+- **Refuerzo**: se agregó `.dockerignore` en `backend` para que `COPY . .` no cueza `tests/` ni
+  `node_modules` en la imagen de producción.
+- **Descartado**: rama `dev` separada — implicaría mover a una rama cosas que ya están en
+  `main` (`docker-compose.local.yml`, `dev.sh`), dejando referencias colgando desde `main`;
+  es una reestructura a analizar aparte, no un cambio lateral.
+- **Alternativa futura**: `git sparse-checkout` en la VM para que esos paths ni siquiera
+  existan en el disco de producción (hoy no hace falta: no afectan).
+
 
 

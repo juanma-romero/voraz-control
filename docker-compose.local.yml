@@ -11,9 +11,9 @@
 #    · red propia 'voraz_local' (en prod es 'frappe_docker_default', externa a Compose)
 #    · puertos remapeados: localhost:3000 ya está ocupado en esta PC
 #    · contenedores con sufijo _local  → imposible confundirlos con los de prod
-#    · sin dashwhat2: es Baileys, y una segunda sesión de WhatsApp puede invalidar
-#      la de producción. Para probar mensajería se usa el simulador de chat:
-#      backend/backend/tests/chat_simulator.html
+#    · dashwhat2 NO corre (Baileys: una segunda sesión de WhatsApp puede invalidar
+#      la de producción). En su lugar, dashwhat_mock sirve el simulador de chat
+#      (http://localhost:8880/) y recibe los salientes del backend: tools/mock-dashwhat/
 #    · erp_service corre un MOCK en memoria (tools/mock-erp/): en local no hay
 #      ERPNext, así arranca sin fallar y los comandos de pedidos funcionan.
 #    · Mongo local: NODE_ENV=local → db.js usa la base 'test' (en prod 'dash')
@@ -37,7 +37,7 @@ services:
       NODE_ENV: local
       IA_SERVICE_URL: http://ia_service:8000
       ERP_SERVICE_URL: http://erp_service:8001
-      DASHWHAT_URL: http://dashwhat2:8880
+      DASHWHAT_URL: http://dashwhat_mock:8880
       # Chatwoot NO corre en local: las rutas que lo usan fallan con error de DNS.
       CHATWOOT_URL: http://chatwoot:3000
       CHATWOOT_ACCOUNT_ID: 1
@@ -76,6 +76,23 @@ services:
       # Apaga el MCP de ERPNext (necesita el build/ del server y un ERP real).
       # Ver ia-service/main.py.
       ENABLE_MCP: "false"
+
+  # Mock de dashWhat2 (ver tools/mock-dashwhat/). Cierra el loop de SALIDA:
+  # sirve el simulador de chat y recibe los mensajes que el backend manda al
+  # cliente/admin (POST /send-message). Sin WhatsApp: no hay sesión de Baileys.
+  #   Página:  http://localhost:8880/
+  #   Salientes recibidos: GET http://localhost:8880/outbox
+  dashwhat_mock:
+    build: ./tools/mock-dashwhat
+    container_name: dashwhat_mock_local
+    restart: "no"
+    ports:
+      - "8880:8880"
+    volumes:
+      # El HTML del simulador vive en el repo del backend; se monta read-only.
+      - ./backend/backend/tests:/static:ro
+    environment:
+      STATIC_DIR: /static
 
   # Solo local: el backend hace process.exit(1) si no conecta a Mongo.
   # Se usa 4.4 y NO la 8: MongoDB ≥5 exige instrucciones AVX y el CPU de esta PC
