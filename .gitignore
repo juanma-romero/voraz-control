@@ -13,5 +13,7 @@
 !/docker-compose.local.yml
 !/dev.sh
 !/.env.example
+!/scripts/
+!/scripts/**
 
 # Los .env reales (.env, .env.local) quedan ignorados por /* — nunca se versionan.
