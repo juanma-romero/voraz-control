@@ -167,3 +167,19 @@ Cada entrada: **fecha · decisión · por qué · alternativa descartada**.
 - **Por qué importa**: confirma que los permisos del rol nuevo alcanzan para toda la operación
   real, que era el riesgo de migrar desde `Administrator`.
 
+## 2026-10-08 — El MCP del agente de WhatsApp, también de solo lectura
+
+- **Hallazgo**: el MCP que levanta `ia-service` para el agente de WhatsApp devolvía **todas** las
+  herramientas (`get_tools_schema()` no filtraba nada), incluidas las de escritura, y las corría
+  con las credenciales heredadas de `erp-service/.env` (usuario de **escritura**). El LLM del
+  agente tenía, por lo tanto, escritura latente sobre el ERP.
+- **Decisión**: (a) que el MCP use las credenciales `MCP_ERPNEXT_API_*` (usuario de consulta), y
+  (b) filtrar las herramientas a las 5 de lectura, con rechazo también en `call_tool()`.
+- **Descartado**: apagar el MCP (`ENABLE_MCP=false`). El agente **sí** lo usa (en los logs hay
+  consultas libres reales como *"ventas del mes octubre"*), y las nativas —`get_sales_summary`,
+  `get_sales_by_product`, `get_pending_orders`, `calculate`— no cubren consultas arbitrarias.
+- **Nota**: Hermes y `ia-service` usan **dos instancias distintas** del mismo
+  `erpnext-mcp-server`, en máquinas distintas y para consumidores distintos (Hermes → el
+  asistente; `ia-service` → el agente de WhatsApp). No comparten proceso ni credenciales.
+
+

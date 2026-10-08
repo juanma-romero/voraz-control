@@ -201,6 +201,21 @@ Los roles se crearon con `Custom DocPerm` sobre 22 doctypes (ventas, inventario 
 > ⚠️ **Pitfall**: el ORM de Frappe **no persiste** cambios en la tabla `Has Role` (igual que con
 > `api_key`): hay que escribir en la DB directamente.
 
+### El MCP del agente de WhatsApp es de solo lectura
+
+`ia-service` levanta su **propia** instancia del MCP (no la de Hermes) para que el agente de
+WhatsApp haga consultas libres al ERP. Está limitada a lectura en **tres capas**:
+
+1. `get_tools_schema()` expone al LLM solo 5 herramientas (`get_doctypes`, `get_doctype_fields`,
+   `get_documents`, `get_document`, `run_report`).
+2. `call_tool()` rechaza cualquier otra, aunque el LLM la pida.
+3. El MCP usa las credenciales `MCP_ERPNEXT_API_*` (usuario de consulta), así que el ERP también
+   las rechazaría.
+
+Verificado el 2026-10-08 contra el contenedor: el LLM recibe 5 herramientas, las 4 de escritura
+probadas son rechazadas, y una de lectura devuelve datos reales.
+
+
 ### Agregar un permiso nuevo
 Agregar el doctype a la lista del script y volver a ejecutarlo (crea los `Custom DocPerm` de los
 dos roles para ese doctype).
