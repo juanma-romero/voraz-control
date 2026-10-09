@@ -141,3 +141,14 @@ para operaciones contables e inventario.
       El respaldo tiene los parches de conexión de Baileys (`Platform.MACOS`, browser
       simulado) y un extractor de texto para mensajes de botones/listas. **Pendiente decidir
       si se rescata algo de ahí** o se descarta.
+- [ ] **Puente agente-a-agente local ↔ VM (`hermes peer`)**. Hoy el Hermes local le habla al de
+      la VM por SSH (atajo `~/.local/bin/vm-hermes`, skill `voraz-vm-bridge`): funciona, pero
+      **solo local → VM** y cae en una **sesión aparte** (no aparece en el bot de Telegram de la
+      VM). La vía nativa es `hermes peer`: habilitar `platforms.api_server` en el gateway de la VM
+      con un `API_SERVER_KEY` fuerte (hoy no está activo), dejarlo privado con un túnel SSH
+      (`ssh -N -L 8377:localhost:8377 voraz`) y registrar el peer desde local
+      (`hermes peer add voraz-vm --url http://localhost:8377 --key <KEY>`). Da **Bot Chat canónico**
+      en la VM y turnos async (`peer run` / `peer status`). La key es credencial: la maneja el
+      usuario. El sentido inverso (VM → local) requiere Tailscale/VPN (la VM no alcanza la PC por
+      NAT). Doc: `https://hermes-agent.nousresearch.com/docs/user-guide/bot-mode`
+      (*Bot-initiated DMs across machines*).
