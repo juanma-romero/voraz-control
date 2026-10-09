@@ -269,3 +269,78 @@ Los 4 flujos críticos pasan con `integracion@`: **crear pedido, cobrar, entrega
   `docker image prune -f` (solo imágenes huérfanas; no toca volúmenes).
 - **No correr `docker compose down`** en la raíz: baja los cuatro servicios de golpe.
 - ERPNext (frappe_docker) es el mayor consumidor de disco: las imágenes base son grandes.
+
+---
+
+## 9. Páginas legales de Chatwoot
+
+Meta exige tres URLs para publicar una app (**Go live**) y para App Review. Las servimos como
+estáticos desde el propio Chatwoot, en `chat.vorazadmin.site`:
+
+| Página | URL |
+|---|---|
+| Política de privacidad | `https://chat.vorazadmin.site/legal/privacidad.html` |
+| Términos de servicio | `https://chat.vorazadmin.site/legal/terminos.html` |
+| Eliminación de datos | `https://chat.vorazadmin.site/legal/eliminacion-de-datos.html` |
+
+**Cómo están publicadas.** Los archivos viven en la VM en `~/chats/legal/` y se montan dentro
+del contenedor en `/app/public/legal` (Chatwoot sirve `/app/public` como estáticos de Rails).
+El montaje está declarado en `~/chats/docker-compose.yaml`, en el ancla `base`:
+
+```yaml
+    volumes:
+      - storage_data:/app/storage
+      - ./legal:/app/public/legal:ro
+```
+
+**Editar una página** (efecto inmediato, sin reinicio):
+
+```bash
+ssh voraz 'docker cp ~/chats/legal/. chats-rails-1:/app/public/legal/'
+curl -s -o /dev/null -w "%{http_code}\n" https://chat.vorazadmin.site/legal/privacidad.html
+```
+
+⚠️ **Pitfall**: el montaje del compose **solo se aplica al recrear** el contenedor. Si se copian
+los archivos con `docker cp` y un recreate posterior ocurre **sin** el volumen en el compose, los
+archivos desaparecen y las tres URLs pasan a **404** — con la app ya publicada, eso puede hacer
+que Meta la observe o la rechace. Antes de cualquier recreate de Chatwoot, confirmar que el
+volumen sigue en el compose (`docker compose config | grep legal`).
+
+**Contenido**: el contacto publicado es `xjuanma.romerox@gmail.com` y el WhatsApp
+**0983 422 117**. Falta razón social/RUC si se quiere formalizar la página.
+
+---
+
+## 10. Canales de Meta (Facebook e Instagram) en Chatwoot
+
+Dos apps de Meta, una por canal:
+
+| App de Meta | IDs | Canal |
+|---|---|---|
+| **wootOct26** | App ID `1073626225286220` | Facebook — página *Voraz* (`108460077968811`) |
+| **testearFoto** | App ID `2010013926374688` · Instagram app ID `1676307624126614` | Instagram — @vorazcde (`17841446280417992`) |
+
+**Dónde viven las credenciales**: en el **super_admin de Chatwoot**
+(`/super_admin/app_config?config=facebook` y `?config=instagram`), o sea en la tabla
+`installation_configs`. Hay además `FB_*` en `~/chats/.env`, pero **el valor de la base de datos
+gana sobre la variable de entorno** — el `.env` puede quedar con las claves vacías sin afectar
+nada.
+
+**Endpoints de webhook** (los que se configuran en Meta):
+
+| Canal | Callback URL | Verify token en Chatwoot |
+|---|---|---|
+| Facebook | `https://chat.vorazadmin.site/bot` | `FB_VERIFY_TOKEN` |
+| Instagram | `https://chat.vorazadmin.site/webhooks/instagram` | `INSTAGRAM_VERIFY_TOKEN` |
+
+**Verificar sin tocar el panel** (el token de app es `{app-id}|{app-secret}`):
+
+```bash
+# desde la VM, con las credenciales en un archivo
+curl -s --get "https://graph.facebook.com/v23.0/2010013926374688/subscriptions" \
+  --data-urlencode "access_token=<APP_ID>|<APP_SECRET>"
+```
+
+El procedimiento completo, los pasos en el panel de Meta y los **pitfalls** (app borrada,
+etiqueta `ACCOUNT_UPDATE` retirada, dónde va la redirect URI, dónde va el token de verificación,
+modo Live) están en la skill **`chatwoot-meta-channels`**.

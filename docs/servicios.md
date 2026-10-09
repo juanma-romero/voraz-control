@@ -106,6 +106,19 @@ desde WhatsApp.
 ## 7. Chatwoot
 
 - Servicio aparte (`~/chats` en la VM; Postgres + Redis, dominio `chat.vorazadmin.site`,
-  detrás del `nginx-proxy` con TLS).
-- Canales: **WhatsApp** (inbox `Channel::Api`, el único que usa el flujo del stack) y
-  **Facebook** (inbox `Channel::FacebookPage`, conectado 2026-10-08). Instagram: pendiente.
+  detrás del `nginx-proxy` con TLS). Versión en uso: **4.13.0** (`chatwoot/chatwoot:latest`).
+- Canales conectados:
+  - **WhatsApp** — inbox `Channel::Api` (el único que usa el flujo del stack).
+  - **Facebook** — inbox `Channel::FacebookPage` sobre la página *Voraz*
+    (`108460077968811`). Conectado 2026-10-08. Entrada y salida verificadas.
+  - **Instagram** — inbox `Channel::Instagram` sobre la cuenta **@vorazcde**
+    (`17841446280417992`, cuenta business). Conectado 2026-10-09 vía *Instagram Business
+    Login* en la app de Meta `testearFoto`. Entrada verificada.
+- **Páginas legales** (las que pide Meta para publicar la app) servidas como estáticos:
+  `/legal/privacidad.html`, `/legal/terminos.html`, `/legal/eliminacion-de-datos.html`.
+  Detalle operativo en `runbook.md` §9.
+- App de Meta para Facebook: **wootOct26** (`1073626225286220`). Para Instagram:
+  **testearFoto** (`2010013926374688`). Credenciales y canales: `runbook.md` §10.
+- El backend del stack sólo **reenvía** mensajes entrantes a Chatwoot
+  (`forwardIncomingToChatwoot`); las respuestas al cliente por WhatsApp siguen saliendo por
+  `dashwhat2`.
