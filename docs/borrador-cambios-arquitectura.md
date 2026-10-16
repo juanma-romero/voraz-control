@@ -246,7 +246,72 @@ probada** (por el riesgo de pedido duplicado); P5 recién con P1–P4 cerrados.
 
 ---
 
-## 9. Cómo seguir con este archivo
+## 10. P0 — cómo capturar el payload real (conclusión de la sesión 2026-10-16)
+
+### 10.1 El dump que existía
+`dashWhat2/api/main.js` tuvo **`//console.log(message)`** dentro del handler de
+`messages.upsert`. Se **borró** (no se comenta ni se descomenta) en el commit `4aed8ea`
+(2026-10-14, *"feat: improve message parsing for contacts, reactions, stickers, and
+documents"*). Hoy no existe ningún dump del payload: grep de `stringify`/`console.log` del
+sobre vacío en el clon local, en el `api/main.js` desplegado de la VM y en `/app/main.js`
+del contenedor corriendo. El único `stringify` del repo es `test_parser.js:234`, que es el
+cuerpo ya parseado que se postea al backend.
+
+### 10.2 Lo que dice la doc de Baileys (cambia el enfoque del P0)
+Fuente: `baileys.wiki` — tipos `WAMessageKey`, `LIDMapping` y la función
+`extractAddressingContext`.
+
+- `WAMessageKey` trae, además de `remoteJid`/`participant`: **`remoteJidAlt`**,
+  **`participantAlt`**, **`addressingMode`**, `remoteJidUsername`, `participantUsername`,
+  `isViewOnce`, `server_id`.
+- `extractAddressingContext(stanza) → { addressingMode, recipientAlt, senderAlt }`.
+- Existe `isLidUser` / `isHostedLidUser` para clasificar el tipo de `@lid`.
+
+**Consecuencia:** el par `@lid` ↔ teléfono **viaja en el sobre que Baileys entrega**; no es
+un dato a inferir ni a pedir por otra vía. El P0 entonces no es "descubrir" el esquema, es
+**medir cuántos mensajes reales lo traen y en qué campos**, y documentar qué se descarta.
+
+### 10.3 Sospecha concreta a verificar (por qué el paso 1 va en el backend)
+`messageParser.js` retorna `key: message.key` **completo** y `main.js` lo postea tal cual a
+`POST /api/messages`. En cambio `saveMessage()` (`services/mongo.service.js`) persiste solo
+`{ id, role, type, content, timestamp }`. Si la sospecha es cierta, **el backend ya recibe
+`remoteJidAlt` y lo está tirando** — el problema sería de persistencia, no de recepción, y
+eso achica muchísimo la Idea #16.
+
+### 10.4 Rutas de captura, por costo/riesgo
+
+| Paso | Dónde | Cómo se despliega | Reversibilidad | Qué alcanza a ver |
+|---|---|---|---|---|
+| **1 (recomendado)** | `backend` (`routes/messages.routes.js`), log detrás de `LOG_RAW_MESSAGES=true` | `git pull` + `docker compose restart backend` (tiene **bind-mount**, **sin rebuild**) | apagar la flag | el payload **ya parseado** que Baileys manda: qué campos del `key` llegan vivos |
+| 2 (si el 1 muestra que el parser rompe el sobre) | `dashWhat2/api/main.js` | **rebuild** del servicio (sin bind-mount) + verificar `df -h /` antes (disco ~85%) | revertir el commit | el sobre **crudo** de `messages.upsert`, antes del parseo |
+| 2b (alternativa sin git/rebuild) | parche efímero dentro del contenedor | `docker cp` + `docker restart dashwhat2` | se limpia solo en el próximo recreate | idem 2, pero sin registrar nada en el repo |
+| 2c (cero producción) | sesión Baileys con un número de prueba en local | `test_parser.js` / simulación | n/a | payloads reales de un número de prueba; **no** ve la variedad del tráfico de clientes |
+
+**Regla:** el paso 1 se hace primero y solo. No se toca `dashWhat2` ni se reconstruye nada
+hasta ver qué dio el log del backend. Nada de esto se ejecuta sin OK explícito de Juanma.
+
+### 10.5 Checklist de casos a capturar (ventana del log)
+El P0 se cierra cuando estén vistos en tráfico real, con nombre de campo y presencia/ausencia:
+
+- [ ] mensaje de texto entrante de cliente `@lid` → ¿viene `key.remoteJidAlt` con el teléfono?
+- [ ] mensaje de texto entrante de cliente `@s.whatsapp.net` → ¿viene `key.remoteJid` en claro?
+- [ ] mensaje propio (`fromMe: true`) en chat de cliente → qué campos hay (`participantPn`, `addressingMode`)
+- [ ] **audio** (no se puede transcribir en `dashWhat2`: ver `content: '[Audio]'`) → qué trae `mediaUrl`
+- [ ] **imagen** con caption y sin caption (comprobante de pago) → `mediaUrl`, `caption`, `mimetype`
+- [ ] **ubicación** estática y en vivo (`locationMessage` vs `liveLocationMessage`)
+- [ ] **vCard** de contacto (`contactMessage`, `contactsArrayMessage`)
+- [ ] **cita / respuesta** (`quotedMessage` + `contextInfo.stanzaId`) → ¿`replyTo` sobrevive al parseo?
+- [ ] **reacción** (`reactionMessage`) → `targetMessageId`
+- [ ] envoltorios: `ephemeralMessage`, `viewOnceMessageV2`, `documentWithCaptionMessage`, `editedMessage`
+- [ ] ruido a filtrar: `protocolMessage`, `messageContextInfo`, `secretEncryptedMessage`, `@newsletter`, `@broadcast`, `@g.us`, `status@broadcast`
+- [ ] `pushName` presente/ausente (de ahí salen los `Customer` tipo `.` en ERPNext)
+
+Salida esperada: tabla `campo → ¿llega al backend? → ¿se guarda en Mongo? → ¿se espeja a Chatwoot?`,
+que es la que alimenta el plan definitivo y la reescritura de la Idea #16.
+
+---
+
+## 11. Cómo seguir con este archivo
 
 - Se edita acá, no en el chat: cada conclusión nueva entra como fila/tabla con su evidencia.
 - Cuando el P0 esté hecho, este borrador se convierte en `docs/plan-arquitectura.md` (el
