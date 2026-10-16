@@ -57,11 +57,10 @@ usuario antes de usarlo y no le generes ni copies claves.**
 
 ## Reglas duras
 
-### Producción
-- **Nunca modificar código directamente en la VM.** Es producción: se diseña y se prueba
-  en local, y se despliega por Git (`docs/runbook.md`).
-- Cuando el usuario pida "revisar un error en producción": **solo diagnosticar y proponer
-  diffs**. Se permite usar `curl` y comandos de lectura (`docker logs`, `git log`).
+### Producción y Tareas Kanban (Regla de Oro)
+- **Nunca modificar código ni transferir archivos (`scp`) directamente a la VM.** Es producción: se diseña, se programa y se prueba en local (`./dev.sh` o tests locales), se commitea y se pushea a GitHub desde local. La VM únicamente recibe cambios vía `git pull --ff-only` y posterior rebuild/restart.
+- **Prohibido commitear o editar dentro de la VM:** el working tree de la VM debe mantenerse siempre limpio y en sincronía con `origin/main`.
+- Cuando el usuario pida "revisar un error en producción": **solo diagnosticar y proponer diffs**. Se permite usar `curl` y comandos de lectura (`docker logs`, `git log`).
 - **El disco de la VM está al ~85%** (≈4 GB libres de 29 GB). Antes de cualquier operación
   que genere imágenes o archivos grandes (rebuilds, builds), chequear `df -h /` y avisar.
 - No correr `docker compose down` en la raíz de la VM: baja los cuatro servicios de golpe.
