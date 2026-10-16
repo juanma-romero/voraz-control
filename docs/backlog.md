@@ -109,6 +109,11 @@ para operaciones contables e inventario.
 18. **Promocionar la capacidad de producción en el día.** La operación ya puede entregar pedidos hechos en el día (hasta 1–2 h después de recibido), pero hoy no se comunica en ningún canal. Agregar el mensaje *"del día"* al saludo automático, al catálogo y a los copys de Meta/Instagram (ver `marketing/base_comercial_voraz.md`). *Medir: pedidos con lead time < 3 h.*
 19. **Combo Cumpleaños completo (bocaditos + torta).** 26 conversaciones pidieron torta dulce; 7 se perdieron enteras por no tenerla y 19 compraron solo salado. Coordinar con Zulma la venta de torta: decidir si se produce en cocina propia o por un aliado/confitería, cargar el ítem en ERPNext con su precio y publicarlo como *"combo cumpleaños completo"* para no seguir resignando esas ventas.
 20. **Analizar payload de WhatsApp.** Auditar e inspeccionar en profundidad la estructura completa del payload que entrega Baileys en `messages.upsert` hacia `dashWhat2` y el backend (`messageParser.js`, `parseBaileysMessage`). Mapear y documentar campos de texto, audios, imágenes, ubicaciones, citas/respuestas (`replyTo`), metadatos (`fromMe`, `remoteJid`, timestamps) y casos borde (mensajes de sistema, estados, grupos) para optimizar el procesamiento y evitar pérdida de información en la cadena de mensajes.
+21. **Ampliación de funciones de atención al cliente con agente de IA.** Integrar capacidades conversacionales automatizadas en la atención por WhatsApp:
+    - **Cálculo de delivery:** calcular costo según zona/distancia, guardando la ubicación del cliente y el costo asignado.
+    - **Saludo inicial y seguimiento:** saludo interactivo ofreciendo listado de productos/catálogo y pregunta de seguimiento para no perder leads fríos.
+    - **Información operativa:** responder automáticamente dudas de horarios de atención y ubicación física del local.
+    - **Detección de completitud de pedido:** identificar activamente en la conversación cuando ya se tienen los datos esenciales (día/hora de entrega, productos y cantidades, modalidad delivery/retiro) para proponer la creación/agendamiento del pedido.
 
 ## Bugs abiertos
 
