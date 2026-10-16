@@ -109,7 +109,7 @@ para operaciones contables e inventario.
 18. **Promocionar la capacidad de producción en el día.** La operación ya puede entregar pedidos hechos en el día (hasta 1–2 h después de recibido), pero hoy no se comunica en ningún canal. Agregar el mensaje *"del día"* al saludo automático, al catálogo y a los copys de Meta/Instagram (ver `marketing/base_comercial_voraz.md`). *Medir: pedidos con lead time < 3 h.*
 19. **Combo Cumpleaños completo (bocaditos + torta).** 26 conversaciones pidieron torta dulce; 7 se perdieron enteras por no tenerla y 19 compraron solo salado. Coordinar con Zulma la venta de torta: decidir si se produce en cocina propia o por un aliado/confitería, cargar el ítem en ERPNext con su precio y publicarlo como *"combo cumpleaños completo"* para no seguir resignando esas ventas.
 20. **Analizar payload de WhatsApp.** Auditar e inspeccionar en profundidad la estructura completa del payload que entrega Baileys en `messages.upsert` hacia `dashWhat2` y el backend (`messageParser.js`, `parseBaileysMessage`). Mapear y documentar campos de texto, audios, imágenes, ubicaciones, citas/respuestas (`replyTo`), metadatos (`fromMe`, `remoteJid`, timestamps) y casos borde (mensajes de sistema, estados, grupos) para optimizar el procesamiento y evitar pérdida de información en la cadena de mensajes.
-21. **Ampliación de funciones de atención al cliente con agente de IA.** Integrar capacidades conversacionales automatizadas en la atención por WhatsApp:
+21. **Ampliación de funciones de atención al cliente con agente de IA (omnicanal: WhatsApp, Instagram, Facebook y futuro TikTok, con soporte híbrido Chatwoot + WhatsApp móvil).** Integrar capacidades conversacionales automatizadas en todos los canales conectados a Chatwoot, permitiendo que Juanma/Zulma puedan intervenir tanto desde Chatwoot en PC como desde WhatsApp en el celular en momentos de alta demanda:
     - **Cálculo de delivery:** calcular costo según zona/distancia, guardando la ubicación del cliente y el costo asignado.
     - **Saludo inicial y seguimiento:** saludo interactivo ofreciendo listado de productos/catálogo y pregunta de seguimiento para no perder leads fríos.
     - **Información operativa:** responder automáticamente dudas de horarios de atención y ubicación física del local.
@@ -161,6 +161,26 @@ para operaciones contables e inventario.
       usuario. El sentido inverso (VM → local) requiere Tailscale/VPN (la VM no alcanza la PC por
       NAT). Doc: `https://hermes-agent.nousresearch.com/docs/user-guide/bot-mode`
       (*Bot-initiated DMs across machines*).
+- [ ] **Dejar de crear `Customer` en ERPNext en cada mensaje entrante** (`routes/messages.routes.js`).
+      Eliminar `syncCustomerWithERP()` del flujo de recepción de mensajes para no ensuciar ERPNext
+      con contactos basura (`@lid`, `.`) ante simples consultas de precio; el cliente contable debe
+      crearse/sincronizarse únicamente cuando confirma un pedido (`createOrder` en `order.service.js`).
+- [ ] **Persistir campos ricos en `saveMessage()`** (`services/mongo.service.js`). Guardar `mediaUrl`,
+      `location` (`latitude`, `longitude`, `name`, `address`) y `quotedMessage` que hoy
+      `dashWhat2/api/messageParser.js` ya extrae pero `mongo.service.js` descarta al insertar en
+      `chatsV2`.
+- [ ] **Unificar el catálogo de productos en una única fuente de verdad (ERPNext)**. Reemplazar las
+      4 definiciones duplicadas (`CATALOG_NAMES` en `order.service.js`, `catalog.json`,
+      `detalleProductos.json` y `productosYprecios.json` en `ia-service`) por un endpoint cacheado
+      en `erp-service` (`GET /api/catalog`) alimentado desde `Item` + `Item Price` de ERPNext.
+- [ ] **Pasar a clientes asíncronos en `ia-service/services/ai_model.py`**. Reemplazar las llamadas
+      síncronas bloqueantes (`Groq` y `genai.Client` síncronos dentro de `async def
+      generate_content_with_prompt`) por `AsyncGroq` y `client_google.aio` para no bloquear el
+      worker de FastAPI durante las respuestas del LLM.
+- [ ] **Higiene de infraestructura en `docker-compose.yml`**. (1) Quitar `npm install` del comando
+      de arranque de `voraz_backend` en producción (moverlo al `Dockerfile` y arrancar con
+      `node index.js`); (2) bindear los puertos internos (`3000`, `8000`, `8001`, `8880`) a
+      `127.0.0.1` en lugar de `0.0.0.0`.
 
 ---
 
