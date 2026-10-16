@@ -290,31 +290,126 @@ eso achica muchísimo la Idea #16.
 **Regla:** el paso 1 se hace primero y solo. No se toca `dashWhat2` ni se reconstruye nada
 hasta ver qué dio el log del backend. Nada de esto se ejecuta sin OK explícito de Juanma.
 
-### 10.5 Checklist de casos a capturar (ventana del log)
-El P0 se cierra cuando estén vistos en tráfico real, con nombre de campo y presencia/ausencia:
+### 10.5 RESULTADO del P0 (auditoría ejecutada el 2026-10-16, 22:40-23:00)
 
-- [ ] mensaje de texto entrante de cliente `@lid` → ¿viene `key.remoteJidAlt` con el teléfono?
-- [ ] mensaje de texto entrante de cliente `@s.whatsapp.net` → ¿viene `key.remoteJid` en claro?
-- [ ] mensaje propio (`fromMe: true`) en chat de cliente → qué campos hay (`participantPn`, `addressingMode`)
-- [ ] **audio** (no se puede transcribir en `dashWhat2`: ver `content: '[Audio]'`) → qué trae `mediaUrl`
-- [ ] **imagen** con caption y sin caption (comprobante de pago) → `mediaUrl`, `caption`, `mimetype`
-- [ ] **ubicación** estática y en vivo (`locationMessage` vs `liveLocationMessage`)
-- [ ] **vCard** de contacto (`contactMessage`, `contactsArrayMessage`)
-- [ ] **cita / respuesta** (`quotedMessage` + `contextInfo.stanzaId`) → ¿`replyTo` sobrevive al parseo?
-- [ ] **reacción** (`reactionMessage`) → `targetMessageId`
-- [ ] envoltorios: `ephemeralMessage`, `viewOnceMessageV2`, `documentWithCaptionMessage`, `editedMessage`
-- [ ] ruido a filtrar: `protocolMessage`, `messageContextInfo`, `secretEncryptedMessage`, `@newsletter`, `@broadcast`, `@g.us`, `status@broadcast`
-- [ ] `pushName` presente/ausente (de ahí salen los `Customer` tipo `.` en ERPNext)
+Los dos auditores quedaron **activos en producción**: `[RAW-PAYLOAD]` en `dashwhat2` y
+`[AUDIT-PAYLOAD]` en `voraz_backend`, con `LOG_RAW_PAYLOADS` / `LOG_RAW_MESSAGES` en ON por
+default (se apagan a `false` y un deploy, o revirtiendo el default en el código).
 
-Salida esperada: tabla `campo → ¿llega al backend? → ¿se guarda en Mongo? → ¿se espeja a Chatwoot?`,
-que es la que alimenta el plan definitivo y la reescritura de la Idea #16.
+**Muestra capturada:** 25 mensajes (10 propios, 15 entrantes), más 34 eventos
+`messages.update` (reacciones y estados de entrega), en tráfico real de clientes.
+
+| Pregunta del P0 | Respuesta medida |
+|---|---|
+| ¿Baileys entrega el par `@lid` ↔ teléfono? | **Sí, siempre**: 25/25 mensajes traen `remoteJidAlt` (el teléfono) junto a `remoteJid` (`@lid`), y `addressingMode: "lid"` |
+| ¿Ese par llega **al backend**? | **Sí**: 17/17 mensajes auditados en el backend conservan `key.remoteJidAlt` y `key.addressingMode` |
+| Entonces, ¿dónde se pierde? | **En la persistencia.** `saveMessage()` guarda solo `{id, role, type, content, timestamp}`: el `key` completo llega y se descarta ahí. **No hay que tocar `dashwhat2` para la identidad** |
+| ¿El parser (`messageParser.js`) rompe el sobre? | Para direccionamiento **no**. Sí pierde envoltorios (`ephemeralMessage`, `viewOnceMessageV2`) al desenvolver, que es lo esperado |
+| ¿Se pierde algún mensaje de cliente? | **No.** De 25 crudos, 17 llegaron al backend; los 8 que no son: 6 imágenes y 1 video de **`status@broadcast`** (estados, ignorados a propósito) y **1 imagen propia** (`[messageParser] Imagen propia ignorada.`). Cero pérdida de mensajes de chat |
+| ¿Llega la media de imágenes/audio? | Sí, cuando aplica: `hasMediaUrl` presente y descarga+subida a Cloudinary confirmada en el log (`Recibida imagen. Descargando y subiendo a Cloudinary...`). El video **no** tiene manejo propio |
+| ¿Llegan citas, reacciones, ubicación, contacto? | Sí: `hasQuoted`, `hasLocation`, `hasContactInfo`, `hasReaction` se observaron todos en ≥1 caso real |
+| ¿Qué trae `messages.update`? | 34 eventos, mayormente `update.status` (3 = entregado/leído) y reacciones. **Hoy nadie más los consume** |
+
+**Imagen del `key` real (crudo de Baileys, con el número enmascarado):**
+
+```
+"key": { "remoteJid": "2679***68@lid (15d)",
+         "remoteJidAlt": "5959***76@s.whatsapp.net (12d)",
+         "fromMe": false, "id": "3A61013B...", "addressingMode": "lid" }
+```
+
+Y al arrancar, Baileys reporta su propia identidad dual:
+`myPN: 595985214420@s.whatsapp.net` + `myLID: 223772191809557@lid`.
+
+**Conclusión del P0:** el esquema `@lid` ↔ teléfono **está disponible y llega hasta el
+backend**; lo que falta es **persistirlo y usarlo**. Eso convierte la Idea #16 de
+"auditar el payload" en "cambiar el modelo de datos (Mongo) y unificar identidad contra
+Chatwoot + ERPNext". El visor queda activo con el scrub ya probado, así que si WhatsApp
+cambia el payload otra vez, va a quedar registrado.
+
+### 10.6 Huecos que quedaron del checklist (pendientes, no bloquean el P0)
+
+- [ ] **PDF/documento** (`documentMessage`): no se probó.
+- [ ] **Respuesta desde el panel de Chatwoot**: no se probó (capturaría el saliente + el
+      eco del webhook de inbox, que es el caso del bucle).
+- [ ] **Audio**: llegó y se subió a Cloudinary, pero `dashWhat2` no transcribe (`content:
+      '[Audio]'`), así que su contenido es invisible para el agente.
+- [ ] **Video**: `videoMessage` entró al log crudo pero no se maneja en el parser.
+- [ ] **Ubicación en vivo** (`liveLocationMessage`) y **vCard múltiple**
+      (`contactsArrayMessage`): no vistos.
+- [ ] `@newsletter` / `@g.us`: no aparecieron en la muestra.
+
+**Defecto del propio visor a corregir:** el log crudo trunca a `LOG_RAW_PAYLOADS_MAX`
+(default 4000 caracteres), y los mensajes grandes (imágenes con caption, videos) se cortan
+a mitad del JSON. La dirección va al principio del objeto, así que **no** afecta la
+auditoría de identidad, pero sí oculta qué claves de contenido traen. Arreglo: subir el
+tope y/o agregar al log un resumen de rutas de campos (como hace el auditor del backend).
 
 ---
 
-## 11. Cómo seguir con este archivo
+## 12. Defectos detectados durante el P0 (no son parte del P0, pero son del mismo día)
+
+### 12.1 Chatwoot fragmenta conversaciones: 424 conversaciones para 106 contactos
+
+Medido en `chatwoot_production` (inbox 4):
+
+| contacto | conversaciones |
+|---|---|
+| `129816024096892@lid` | **120** |
+| `267912107524268@lid` | **106** |
+| `233238350016744@lid` | 68 |
+
+Total: **424 conversaciones para 106 contactos**, y las últimas 8 (#421–#428) son todas del
+mismo contacto, creadas una por mensaje entre las 22:43 y las 22:45. El panel es
+inutilizable así: la conversación de un cliente queda partida en decenas de hilos.
+
+Causa probable, a la vista en `backend/services/chatwoot.service.js:161`:
+
+```js
+const openConv = convList.find((c) => c.inbox_id === inboxId && c.status !== 'resolved');
+```
+
+Si `inboxId` (que viene de `await getInboxId()`, otra llamada a la API) no coincide con el
+`inbox_id` de las conversaciones listadas, el `find` no encuentra nada y se **crea una
+nueva**, siempre. Y hay evidencia de que esas llamadas GET al Chatwoot **no están sanas**:
+`GET /api/v1/accounts/1/conversations?inbox_id=4` contra `http://rails:3000` responde
+**301** (Chatwoot fuerza HTTPS), y `axios` sigue el redirect hacia `https://rails:3000`,
+que es TLS contra un puerto HTTP → `ERR_SSL_WRONG_VERSION_NUMBER`. No aparecen líneas de
+error en el log del backend, así que hay que instrumentar el camino exacto antes de tocar
+nada: **es el ítem P1 más rentable de la reforma de Chatwoot**.
+
+### 12.2 Dos notificaciones salientes fallaron con 500 (previas al deploy)
+
+```
+22:13:23  [notification.service] Error al enviar mensaje a cliente 232533992177849@lid
+22:21:12  [notification.service] Error al enviar mensaje a cliente 60679448977551@lid
+```
+
+Ambas **antes** del deploy (22:39/22:40), así que no son consecuencia del cambio: es un
+defecto previo de `notification.service` cuando el socket no está en condiciones de enviar.
+Recuperable con el visor: el `remoteJidAlt` de esos dos `@lid` está en el log de auditoría,
+aunque enmascarado (primeros 4 y últimos 2 dígitos) — para identificarlos con certeza hay
+que cruzar contra Mongo/ERPNext.
+
+### 12.3 Datos de documentación desactualizados
+
+- El disco de la VM está al **50% (29 G libres de 58 G)**, no al "85% / 29 G" que dicen
+  `runbook.md` y `AGENTS.md`. Corregir cuando se toque esa documentación.
+- `dashWhat2/package.json` tiene las dependencias en `"*"`: ya se pasó el `Dockerfile` a
+  `npm ci` con el lock (Baileys 7.0.0-rc.9), pero conviene fijar versiones reales.
+
+---
+
+## 13. Cómo seguir con este archivo
 
 - Se edita acá, no en el chat: cada conclusión nueva entra como fila/tabla con su evidencia.
-- Cuando el P0 esté hecho, este borrador se convierte en `docs/plan-arquitectura.md` (el
-  definitivo), con decisiones registradas en `docs/decision-log.md` (fecha · decisión · por
-  qué · alternativa descartada) y las etapas llevadas a tarjetas del tablero `voraz`.
-- Nada de este archivo autoriza a tocar código todavía.
+- **El P0 está cerrado** (§10.5). Lo que sigue es pasar este borrador a
+  `docs/plan-arquitectura.md` (el definitivo), con las decisiones registradas en
+  `docs/decision-log.md` (fecha · decisión · por qué · alternativa descartada) y las etapas
+  llevadas a tarjetas del tablero `voraz`.
+- Antes de eso quedan 5 preguntas abiertas en §8 sin responder, y tres frentes técnicos
+  identificados: el fragmentado de conversaciones de Chatwoot (§12.1), la persistencia de
+  la identidad `@lid`↔teléfono (Idea #16) y el espejo direccional con marca de origen
+  (§6), que ahora se sabe que **no depende de tocar `dashwhat2`**.
+- Los dos visores de payload siguen encendidos a propósito: si WhatsApp cambia el formato,
+  queda registrado. Apagado: `LOG_RAW_PAYLOADS=false` / `LOG_RAW_MESSAGES=false` + deploy.

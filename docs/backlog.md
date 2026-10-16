@@ -13,15 +13,19 @@ para operaciones contables e inventario.
 
 ---
 
-## Prioridad inmediata (P0)
+## Prioridad inmediata
 
-**Auditar el payload de WhatsApp antes de cerrar el plan de arquitectura** (Idea #20).
-Es prérequis, no una idea más: de ese mapa depende la unificación de identidad entre
-canales (`@lid` ↔ teléfono ↔ `Customer` de ERPNext ↔ contacto de Chatwoot) y el
-rediseño del modelo de conversaciones (Idea #16).
+**Auditoría del payload de WhatsApp (Idea #20): HECHA el 2026-10-16.** Resultado, evidencia
+y huecos restantes en `docs/borrador-cambios-arquitectura.md` §10. Resumen: Baileys entrega
+siempre el par `@lid` ↔ teléfono (`key.remoteJidAlt`, `addressingMode`) y **ese par llega
+hasta el backend**; se pierde al **persistir** (`saveMessage()` guarda solo
+`{id, role, type, content, timestamp}`). No se pierde ningún mensaje de cliente.
 
-El análisis de arquitectura está abierto en `docs/borrador-cambios-arquitectura.md`
-(borrador, sin ejecutar). El plan definitivo se escribe después del P0.
+Nueva prioridad inmediata (P1): **dejar de perder la identidad y arreglar la fragmentación
+de conversaciones de Chatwoot** (424 conversaciones para 106 contactos, §12.1 del borrador).
+
+El plan de arquitectura definitivo está abierto en `docs/borrador-cambios-arquitectura.md`
+(borrador, sin ejecutar).
 
 ---
 
