@@ -19,7 +19,7 @@ las reglas duras y el índice de todo lo demás. El detalle vive en `docs/`.
 | `docs/decision-log.md` | **Por qué** se decidió cada cosa (registro append-only) |
 | `docs/backlog.md` | Objetivos, progreso por fases, ideas y bugs abiertos |
 
-Skills de Hermes relacionadas: `voraz-erpnext` (consultar el ERP), `voraz-deploy` (desplegar).
+Skills de Hermes relacionadas: `voraz-erpnext` (consultar el ERP), `voraz-mongo` (consultar chats en Atlas), `voraz-deploy` (desplegar).
 
 ---
 

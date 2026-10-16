@@ -31,6 +31,7 @@ services:
     ports: !override
       - "3100:3000"
     environment:
+      TZ: America/Asuncion
       MONGODB_URI: mongodb://mongo:27017
       PORT: 3000
       # db.js: NODE_ENV=local → base 'test'   (producción usa 'dash')

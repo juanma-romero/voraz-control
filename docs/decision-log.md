@@ -246,5 +246,11 @@ Cada entrada: **fecha · decisión · por qué · alternativa descartada**.
   un `testo.txt` con credenciales de Cloudinary sin cifrar. La VM ya corre `main` de forma estable.
 - **Descartado**: mergear cambios a `main` (habría reintroducido deuda técnica e invalidado el refactor).
 
+## 2026-10-16 — Filtro dinámico de contactos operativos (proveedores, deliverys, familiares)
+
+- **Decisión**: persistir los filtros de exclusión en la colección `filtered_contacts` de MongoDB y exponer gestión dinámica en `dashboard.vorazadmin.site` (pestaña «Filtros de Contactos») con sincronización reactiva hacia `dashWhat2` (Baileys) y validación de doble capa en `backend` (`POST /api/messages`).
+- **Por qué**: antes los números a ignorar estaban hardcodeados en un `phones.json` dentro de `dashWhat2` que requería reiniciar el contenedor o editar archivos en la VM. Con este esquema, Juanma puede marcar un delivery, proveedor o familiar con 1 clic desde el dashboard web sin tocar código ni reiniciar contenedores, evitando ensuciar MongoDB (`chatsV2`), Chatwoot y el ERPNext con chats no comerciales.
+- **Descartado**: filtrado únicamente en memoria o únicamente en Baileys (si Baileys reiniciaba o se desincronizaba, los mensajes llegaban al backend y se guardaban en Mongo).
+
 
 

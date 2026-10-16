@@ -7,6 +7,7 @@ services:
     ports:
       - "3000:3000"
     environment:      
+      - TZ=America/Asuncion
       - MONGODB_URI=${MONGODB_URI}
       - PORT=3000
       - NODE_ENV="production"
@@ -36,6 +37,8 @@ services:
       - ./erp-service:/app
     env_file:
       - ./erp-service/.env
+    environment:
+      - TZ=America/Asuncion
     restart: always
 
   # Servicio de IA con FastAPI
@@ -50,6 +53,7 @@ services:
     env_file:
       - ./ia-service/.env
     environment:
+      - TZ=America/Asuncion
       # Sobrescribe el .env local: en Docker los servicios se comunican por nombre de servicio
       - ERP_SERVICE_URL=http://erp_service:8001
     restart: always
@@ -63,6 +67,7 @@ services:
     ports:
       - "8880:8880"
     environment:
+      - TZ=America/Asuncion
       - BACKEND_URL=http://backend:3000/api/messages  # Nombre del servicio backend y su puerto interno
       - SELF_URL=http://dashwhat2:8880
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
