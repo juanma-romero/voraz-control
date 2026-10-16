@@ -236,5 +236,15 @@ Cada entrada: **fecha · decisión · por qué · alternativa descartada**.
 - **Alternativa futura**: `git sparse-checkout` en la VM para que esos paths ni siquiera
   existan en el disco de producción (hoy no hace falta: no afectan).
 
+## 2026-10-16 — Eliminación de la rama `respaldo-vm-dashwhat2`
+
+- **Decisión**: descartar y eliminar la rama `respaldo-vm-dashwhat2` del repositorio `dashWhat2`
+  (local y remota origin).
+- **Por qué**: se auditó el diff completo contra `main`. La rama contenía parches viejos hechos a
+  mano en la VM (un `sed` en Dockerfile para Baileys y lógica inline) que quedaron completamente
+  obsoletos tras el refactor modular de `main` (`messageParser.js`, tests, `.env`). Además contenía
+  un `testo.txt` con credenciales de Cloudinary sin cifrar. La VM ya corre `main` de forma estable.
+- **Descartado**: mergear cambios a `main` (habría reintroducido deuda técnica e invalidado el refactor).
+
 
 

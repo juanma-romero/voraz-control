@@ -104,6 +104,10 @@ para operaciones contables e inventario.
 13. Alertas proactivas: el agente notifica al admin cuando el stock baja de un umbral
 14. Resumen diario automático enviado por WhatsApp al cerrar el día
 15. Registro de gastos/egresos por voz o texto libre (ingreso de stock con IA)
+16. **Rediseño del modelo de datos de conversaciones en MongoDB (`chatsV3` / `chat_sessions`) para analítica e inteligencia comercial** *(ver especificación detallada al final de este documento)*.
+17. **Pregunta abierta después del mensaje automático (recupero de leads fríos).** Hoy el bot responde a *"Hola"* con el link del catálogo (`wa.me/c/...`) y ~180 conversaciones quedan abandonadas ahí, sin que nadie retome. Agregar una segunda línea que invite a responder (ej. *"¿Para cuántas personas estás organizando? Te armo una propuesta en el momento"*) convierte ese envío de link en una conversación de venta y le da al bot una señal concreta para calificar y pedir los datos mínimos (fecha, zona, cantidad, factura). *Medir: tasa de respuesta al mensaje automático antes/después.*
+18. **Promocionar la capacidad de producción en el día.** La operación ya puede entregar pedidos hechos en el día (hasta 1–2 h después de recibido), pero hoy no se comunica en ningún canal. Agregar el mensaje *"del día"* al saludo automático, al catálogo y a los copys de Meta/Instagram (ver `marketing/base_comercial_voraz.md`). *Medir: pedidos con lead time < 3 h.*
+19. **Combo Cumpleaños completo (bocaditos + torta).** 26 conversaciones pidieron torta dulce; 7 se perdieron enteras por no tenerla y 19 compraron solo salado. Coordinar con Zulma la venta de torta: decidir si se produce en cocina propia o por un aliado/confitería, cargar el ítem en ERPNext con su precio y publicarlo como *"combo cumpleaños completo"* para no seguir resignando esas ventas.
 
 ## Bugs abiertos
 
@@ -136,11 +140,10 @@ para operaciones contables e inventario.
       → ya están versionados en `voraz-control` (el `.gitignore` se actualizó).
 - [x] ~~Resolver la divergencia de `voraz-control` entre local y la VM~~ → no era divergencia:
       la VM estaba 2 commits atrás. Sincronizada.
-- [x] ~~Resolver `dashWhat2`: 4 archivos modificados solo en la VM~~ → guardados en la rama
-      **`respaldo-vm-dashwhat2`** (publicada en GitHub) y la VM quedó sincronizada en `main`.
-      El respaldo tiene los parches de conexión de Baileys (`Platform.MACOS`, browser
-      simulado) y un extractor de texto para mensajes de botones/listas. **Pendiente decidir
-      si se rescata algo de ahí** o se descarta.
+- [x] ~~Resolver `dashWhat2`: 4 archivos modificados solo en la VM~~ → se guardaron en su momento
+      en `respaldo-vm-dashwhat2`. Tras auditar el diff contra `main`, se verificó que sus cambios
+      (parches viejos de Baileys y `testo.txt`) estaban completamente superados por el refactor
+      de `main`. La rama fue descartada y eliminada (local y remota). Tarea completada (`t_a926c5b4`).
 - [ ] **Puente agente-a-agente local ↔ VM (`hermes peer`)**. Hoy el Hermes local le habla al de
       la VM por SSH (atajo `~/.local/bin/vm-hermes`, skill `voraz-vm-bridge`): funciona, pero
       **solo local → VM** y cae en una **sesión aparte** (no aparece en el bot de Telegram de la
@@ -152,3 +155,168 @@ para operaciones contables e inventario.
       usuario. El sentido inverso (VM → local) requiere Tailscale/VPN (la VM no alcanza la PC por
       NAT). Doc: `https://hermes-agent.nousresearch.com/docs/user-guide/bot-mode`
       (*Bot-initiated DMs across machines*).
+
+---
+
+## Propuesta técnica (Idea #16): Rediseño del JSON de mensajes y sesiones en MongoDB para Inteligencia de Gestión
+
+### 1. Problemas detectados en el modelo actual (`dash.chatsV2` en `mongo.service.js`)
+Al auditar los 1.011 documentos y 46.836 mensajes de `chatsV2` (2026-10-14), se identificaron 6 limitaciones en `saveMessage()` (`backend/services/mongo.service.js`) que dificultan el análisis directo por agentes y distorsionan las métricas comerciales:
+1. **Un documento único infinito por contacto:** Todos los mensajes de la vida del cliente se apilan en un solo array `messages` (hay documentos de hasta 3.781 mensajes y 7+ pedidos de distintos meses mezclados).
+2. **Pérdida de campos ricos al guardar en vivo:** Aunque `dashWhat2` extrae `caption`, `mediaUrl`, `quotedMessage` y `location` (`latitude`/`longitude`), el método actual `saveMessage()` de `mongo.service.js` solo guarda `{ id, role, type, content: messageData.textContent || '', timestamp }`, perdiendo en los mensajes nuevos las coordenadas GPS, URLs de comprobantes en Cloudinary y el mensaje citado.
+3. **Inyección de ruido de protocolo (~10% de la base):** Se guardan en base de datos eventos de Baileys como `protocolMessage`, `reactionMessage`, `messageContextInfo`, `stickerMessage` y `secretEncryptedMessage` bajo `type: "unsupported"`.
+4. **Resolución incompleta de identidad (`@lid` vs teléfono):** El 94,7% de los documentos usa el identificador opaco `@lid` de WhatsApp (`remoteJid`) sin persistir el `remoteJidAlt` / `participantPn` (`5959...@s.whatsapp.net`) cuando Baileys lo informa en el sobre del mensaje.
+5. **Mezcla de roles y actores no comerciales:** El teléfono de Voraz también se usa para hablar con **proveedores** (imprenta, carnicería, tapas, avícola), **repartidores de delivery** e **internos**. Como todo mensaje saliente se etiqueta `role: "assistant"`, cuando Voraz le hace un pedido a un proveedor la IA puede confundirlo con una venta.
+6. **Falta de vínculo con ERPNext y métricas de tiempos:** No se guarda el `salesOrderId` (`SAL-ORD-...`) cuando el pedido se agenda, ni los hitos horarios (`scheduledFor`, `readyAt`, `dispatchedAt`) para medir demoras reales del delivery.
+
+---
+
+### 2. Arquitectura propuesta: Separar Perfil (`contacts`) de Sesiones (`chat_sessions`)
+
+En lugar de un único documento gigante por número, estructurar la persistencia en dos niveles (o mantener el array corto de ventana activa en el contacto y archivar cada interacción cerrada como un documento en `chat_sessions`):
+
+#### A. Colección `contacts` (1 documento por persona/empresa — CRM ligero)
+Guarda la identidad consolidada del contacto y sus datos permanentes para no tener que pedirlos ni extraerlos de nuevo en cada compra:
+
+```json
+{
+  "_id": "63209067294835@lid",
+  "contactJid": "63209067294835@lid",
+  "phoneJid": "595981123456@s.whatsapp.net",
+  "phone": "+595981123456",
+  "contactName": "Brahian Rolón",
+  "contactRole": "cliente",
+  "erpCustomerName": "Brahian Rolón",
+  "billing": {
+    "ruc": "5089138-3",
+    "legalName": "Brahian Rolón",
+    "email": "brahianrolon@gmail.com"
+  },
+  "savedLocations": [
+    {
+      "label": "Barrera principal de Itaipú",
+      "lat": -25.512209,
+      "lng": -54.638012,
+      "defaultDeliveryFeeGs": 40000
+    }
+  ],
+  "stats": {
+    "totalOrders": 8,
+    "totalSpentGs": 2650000,
+    "firstContactAt": "2026-02-11T13:18:11Z",
+    "lastOrderAt": "2026-10-09T14:51:36Z",
+    "avgDaysBetweenOrders": 30
+  }
+}
+```
+*Valor de gestión:* Permite detectar automáticamente **clientes frecuentes inactivos** (ej. *"clientes con +3 compras cuyo `lastOrderAt` superó su ciclo habitual de 30 días"*), autocompletar RUC/correo al facturar y cotizar el delivery automáticamente según su ubicación guardada.
+
+---
+
+#### B. Esquema enriquecido de cada mensaje (`messages[]`)
+Filtrar en `dashWhat2` / `mongo.service.js` todo `protocolMessage` y `reactionMessage` **antes** de insertar en Mongo, y guardar cada mensaje válido con esta estructura normalizada:
+
+```json
+{
+  "id": "3EB0A1...",
+  "ts": "2026-10-09T14:52:33.000Z",
+  "localTimePy": "2026-10-09T11:52:33-03:00",
+  "direction": "in",
+  "senderType": "contact",
+  "isAutoReply": false,
+  "type": "text",
+  "text": "Para entregar hoy 15:30hs, barrera principal de Itaipu: 50 mini burgers, 30 canastitas...",
+  "caption": null,
+  "media": {
+    "url": "https://res.cloudinary.com/...",
+    "mimeType": "image/jpeg",
+    "kind": "comprobante_pago"
+  },
+  "location": {
+    "lat": -25.512209,
+    "lng": -54.638012,
+    "name": "Barrera Itaipú",
+    "address": null,
+    "mapsUrl": "https://maps.app.goo.gl/..."
+  },
+  "replyTo": {
+    "messageId": "3EA99...",
+    "snippet": "Si necesitas factura pásame RUC y nombre"
+  }
+}
+```
+*Cambios clave frente al JSON actual:*
+- `localTimePy` precalculado en zona `America/Asuncion` (evita errores de UTC vs. hora hablada en el chat).
+- `isAutoReply: true` cuando el mensaje es el saludo automático del catálogo o de horario de atención (permite medir el **tiempo real de primera respuesta humana** sin confundirlo con el bot).
+- Preservación íntegra de `location`, `media` y `replyTo`.
+
+---
+
+#### C. Colección `chat_sessions` (1 documento por interacción/pedido, cortando tras $\ge 36\text{ h}$ de inactividad)
+Cada vez que una conversación se resuelve o pasa 36 horas sin mensajes, se consolida el bloque `analytics` (mediante IA estructurada + vínculos del backend):
+
+```json
+{
+  "_id": "698c81954a7df570da63ff30_20261009",
+  "contactJid": "63209067294835@lid",
+  "phone": "+595981123456",
+  "contactName": "Brahian Rolón",
+  "contactRole": "cliente",
+  "startedAt": "2026-10-09T14:51:36Z",
+  "endedAt": "2026-10-09T18:38:43Z",
+  "initiatedBy": "contact",
+
+  "erpLink": {
+    "salesOrderId": "SAL-ORD-2026-00412",
+    "salesInvoiceId": "ACC-SINV-2026-00389",
+    "paymentEntryId": "ACC-PAY-2026-00401"
+  },
+
+  "sla": {
+    "firstHumanReplySeconds": 63,
+    "leadTimeHours": 3.6,
+    "scheduledDeliveryTime": "2026-10-09T15:30:00-03:00",
+    "kitchenReadyAt": "2026-10-09T15:05:00-03:00",
+    "deliveryDispatchedAt": "2026-10-09T15:21:42-03:00",
+    "hadDelayOrComplaint": false,
+    "delayReason": null
+  },
+
+  "commercial": {
+    "intent": "compra_bocaditos",
+    "outcome": "venta_cerrada",
+    "lostReason": null,
+    "eventType": "oficina_empresa",
+    "fulfillment": "delivery",
+    "deliveryZone": "Barrera principal de Itaipú",
+    "items": [
+      { "itemCode": "Mini Burger", "qty": 50, "unit": "unidades" },
+      { "itemCode": "Canastita", "qty": 30, "unit": "unidades" },
+      { "itemCode": "Milanesa Pollo", "qty": 60, "unit": "unidades" },
+      { "itemCode": "Gaseosa 2lts", "qty": 1, "unit": "botellas" }
+    ],
+    "unmetDemand": {
+      "askedForCake": false,
+      "askedForSweetPastries": false,
+      "unavailableProductsRequested": ["sprite 2L", "fanta piña 2L"],
+      "customizationsRequested": []
+    },
+    "financials": {
+      "subtotalGs": 333000,
+      "deliveryFeeGs": 40000,
+      "totalGs": 373000,
+      "paymentMethod": "transferencia",
+      "invoiced": true
+    }
+  },
+
+  "cleanTranscript": "[2026-10-09 11:51] CONTACTO: Hola, buenos días..."
+}
+```
+
+### 3. Nuevos indicadores de gestión que habilita este formato
+1. **Auditoría cruzada WhatsApp $\leftrightarrow$ ERPNext (`erpLink`):** Detectar al instante si un pedido confirmado como *"Agendado"* o *"Acreditado"* en WhatsApp se olvidó de cargar o cobrar en ERPNext.
+2. **Medición exacta de puntualidad de cocina vs. repartidor (`sla`):** Separar cuándo un atraso fue de cocina (`kitchenReadyAt` tarde) vs. cuándo el pedido estuvo listo a horario pero el repartidor tardó 40 minutos en pasar a buscarlo (`deliveryDispatchedAt - kitchenReadyAt`).
+3. **Embudo de ventas perdidas por anticipación (`leadTimeHours`):** Saber cuántos pedidos se pierden por pedir con menos de 2 horas de anticipación o para domingos, para evaluar si conviene tener stock congelado/pre-listo en horas pico.
+4. **Radar permanente de nuevos productos (`unmetDemand`):** Contabilizar mes a mes cuánta plata queda sobre la mesa por productos no trabajados (tortas, mesa dulce, bebidas específicas, opciones sin lactosa/vegetales).
+
