@@ -17,7 +17,8 @@ las reglas duras y el índice de todo lo demás. El detalle vive en `docs/`.
 | `docs/servicios.md` | Qué hace cada servicio en detalle (backend, ia, erp, dashWhat2, ERPNext) |
 | `docs/runbook.md` | Cómo se opera: desplegar, desarrollo local, diagnóstico, rotar credenciales |
 | `docs/decision-log.md` | **Por qué** se decidió cada cosa (registro append-only) |
-| `docs/backlog.md` | Objetivos, progreso por fases, ideas y bugs abiertos |
+| `docs/backlog.md` | Objetivos, progreso por fases, ideas y bugs abiertos. Arriba: **P0 activo** |
+| `docs/borrador-cambios-arquitectura.md` | **Borrador** de conclusiones de arquitectura (no ejecutar). Nace de la sesión 2026-10-16; el plan definitivo se escribe después del P0 |
 
 Skills de Hermes relacionadas: `voraz-erpnext` (consultar el ERP), `voraz-mongo` (consultar chats en Atlas), `voraz-deploy` (desplegar).
 

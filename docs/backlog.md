@@ -13,6 +13,18 @@ para operaciones contables e inventario.
 
 ---
 
+## Prioridad inmediata (P0)
+
+**Auditar el payload de WhatsApp antes de cerrar el plan de arquitectura** (Idea #20).
+Es prérequis, no una idea más: de ese mapa depende la unificación de identidad entre
+canales (`@lid` ↔ teléfono ↔ `Customer` de ERPNext ↔ contacto de Chatwoot) y el
+rediseño del modelo de conversaciones (Idea #16).
+
+El análisis de arquitectura está abierto en `docs/borrador-cambios-arquitectura.md`
+(borrador, sin ejecutar). El plan definitivo se escribe después del P0.
+
+---
+
 ## Estado actual
 
 | Componente | Estado |
@@ -108,7 +120,7 @@ para operaciones contables e inventario.
 17. **Pregunta abierta después del mensaje automático (recupero de leads fríos).** Hoy el bot responde a *"Hola"* con el link del catálogo (`wa.me/c/...`) y ~180 conversaciones quedan abandonadas ahí, sin que nadie retome. Agregar una segunda línea que invite a responder (ej. *"¿Para cuántas personas estás organizando? Te armo una propuesta en el momento"*) convierte ese envío de link en una conversación de venta y le da al bot una señal concreta para calificar y pedir los datos mínimos (fecha, zona, cantidad, factura). *Medir: tasa de respuesta al mensaje automático antes/después.*
 18. **Promocionar la capacidad de producción en el día.** La operación ya puede entregar pedidos hechos en el día (hasta 1–2 h después de recibido), pero hoy no se comunica en ningún canal. Agregar el mensaje *"del día"* al saludo automático, al catálogo y a los copys de Meta/Instagram (ver `marketing/base_comercial_voraz.md`). *Medir: pedidos con lead time < 3 h.*
 19. **Combo Cumpleaños completo (bocaditos + torta).** 26 conversaciones pidieron torta dulce; 7 se perdieron enteras por no tenerla y 19 compraron solo salado. Coordinar con Zulma la venta de torta: decidir si se produce en cocina propia o por un aliado/confitería, cargar el ítem en ERPNext con su precio y publicarlo como *"combo cumpleaños completo"* para no seguir resignando esas ventas.
-20. **Analizar payload de WhatsApp.** Auditar e inspeccionar en profundidad la estructura completa del payload que entrega Baileys en `messages.upsert` hacia `dashWhat2` y el backend (`messageParser.js`, `parseBaileysMessage`). Mapear y documentar campos de texto, audios, imágenes, ubicaciones, citas/respuestas (`replyTo`), metadatos (`fromMe`, `remoteJid`, timestamps) y casos borde (mensajes de sistema, estados, grupos) para optimizar el procesamiento y evitar pérdida de información en la cadena de mensajes.
+20. **🔴 P0 — Analizar payload de WhatsApp** (ver "Prioridad inmediata" arriba; es prérequis del plan de arquitectura). Auditar e inspeccionar en profundidad la estructura completa del payload que entrega Baileys en `messages.upsert` hacia `dashWhat2` y el backend (`messageParser.js`, `parseBaileysMessage`). Mapear y documentar campos de texto, audios, imágenes, ubicaciones, citas/respuestas (`replyTo`), metadatos (`fromMe`, `remoteJid`, timestamps) y casos borde (mensajes de sistema, estados, grupos) para optimizar el procesamiento y evitar pérdida de información en la cadena de mensajes. **Incluir explícitamente el esquema nuevo de direcciones:** WhatsApp entrega el contacto como `@lid` **y** como JID de teléfono (`remoteJidAlt` / `participantPn`); documentar en qué casos viene cada uno, cómo resolver el par, y qué se está descartando hoy. *Nota: `@lid` no es basura ni spam — es el identificador del esquema; la basura real es crear un `Customer` en ERPNext por cada mensaje (ver Pendientes).*
 21. **Ampliación de funciones de atención al cliente con agente de IA (omnicanal: WhatsApp, Instagram, Facebook y futuro TikTok, con soporte híbrido Chatwoot + WhatsApp móvil).** Integrar capacidades conversacionales automatizadas en todos los canales conectados a Chatwoot, permitiendo que Juanma/Zulma puedan intervenir tanto desde Chatwoot en PC como desde WhatsApp en el celular en momentos de alta demanda:
     - **Cálculo de delivery:** calcular costo según zona/distancia, guardando la ubicación del cliente y el costo asignado.
     - **Saludo inicial y seguimiento:** saludo interactivo ofreciendo listado de productos/catálogo y pregunta de seguimiento para no perder leads fríos.
