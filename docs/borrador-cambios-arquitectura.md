@@ -329,7 +329,8 @@ cambia el payload otra vez, va a quedar registrado.
 
 ### 10.6 Huecos que quedaron del checklist (pendientes, no bloquean el P0)
 
-- [ ] **PDF/documento** (`documentMessage`): no se probó.
+- [x] **PDF/documento** (`documentMessage`): probado. Entrante llega **sin archivo** (solo
+      el nombre); saliente desde el panel **se descarta**. Ver §12.4.
 - [ ] **Respuesta desde el panel de Chatwoot**: no se probó (capturaría el saliente + el
       eco del webhook de inbox, que es el caso del bucle).
 - [ ] **Audio**: llegó y se subió a Cloudinary, pero `dashWhat2` no transcribe (`content:
@@ -390,6 +391,69 @@ defecto previo de `notification.service` cuando el socket no está en condicione
 Recuperable con el visor: el `remoteJidAlt` de esos dos `@lid` está en el log de auditoría,
 aunque enmascarado (primeros 4 y últimos 2 dígitos) — para identificarlos con certeza hay
 que cruzar contra Mongo/ERPNext.
+
+### 12.4 Resultado de las pruebas de PDF y de respuesta desde el panel (2026-10-18)
+
+**Corrección de un dato propio:** el contenedor `voraz_backend` fue **recreado el 18/10 a
+las 19:21**, así que su `docker logs` arrancó de cero. Cualquier conteo hecho sobre ese log
+solo cubre desde esa hora. La evidencia buena está en `chatwoot_production`.
+
+**PDF entrante (cliente → WhatsApp): FUNCIONA, pero sin el archivo.** En la conversación
+411 aparece:
+
+```
+18:37:01  message_type=0 (entrante)  "[Documento: montiel199.pdf]"
+```
+
+El parser reconoce el documento y arma el texto con el nombre (`messageParser.js:271`), y el
+espejo lo publica en Chatwoot. **Lo que no hace es descargar/subir el archivo**: a
+diferencia de imagen y audio (que van a Cloudinary y dejan `mediaUrl`), para documentos solo
+queda el nombre. Es decir: el sistema **sabe** que hay un PDF, pero no puede leerlo — y un
+comprobante en PDF no se puede descargar desde el panel.
+
+**PDF saliente (panel → WhatsApp): NO llega, y se descarta en silencio.** El mensaje
+`2476` del 17/10 17:57 es un `message_type=1` (saliente) con **`content` vacío**: es un
+adjunto sin texto. En `backend/routes/chatwoot.routes.js`:
+
+```js
+if (event === 'message_created' && message_type === 'outgoing' && !isPrivate && content) {   // :17
+...
+await sendClientMessage(targetJid, content);                                                // :37
+```
+
+Dos límites: la condición exige `content` no vacío (un adjunto suelto se saltea por
+completo, sin log ni aviso), y el envío usa solo el texto — **las `attachments` del panel
+nunca se reenvían a WhatsApp**, ni con texto ni sin él.
+
+**Respuesta desde WhatsApp: se ve en Chatwoot** (confirmado por el usuario), pero entra como
+`message_type=0`, o sea **como si la hubiera escrito el cliente**. Es exactamente el
+defecto de dirección del §5/§6: visible, pero mintiendo sobre quién habló.
+
+**Evidencia de que el flujo híbrido ya se usa en serio:** la conversación 411 tiene la
+secuencia completa de un pedido cerrado con el panel — `"Ya está listo tu pedido"`,
+`"Estamos frente al negocio."`, `"Te alcanzó"`, `"acreditada la transferencia"`, y un
+`"Conversation was marked resolved by Juanma"`. Y en la conversación 430 hay un
+`"Entonces te agendo: Para entregar hoy 19 hs"` **escrito desde el panel**, que es el
+gatillo que crea el `Sales Order`.
+
+**Nota sobre la fragmentación (§12.1):** conv 411 mantiene varios mensajes en la misma
+conversación, así que el fragmentado no es universal. El código saltea las conversaciones
+`resolved` (`status !== 'resolved'` en `chatwoot.service.js:161`) y esas conversaciones **se
+resuelven a mano** al cerrar cada pedido: cada mensaje posterior a un "resolved" abre un
+hilo nuevo. Eso explica la forma del problema (contactos con 120 conversaciones) sin
+necesitar el bug de `inbox_id`.
+
+### 12.5 Pruebas que quedan pendientes
+
+- **PDF**: reenviar (el archivo original del 17/10 ya no está a mano) para medir el entrante
+  con el visor encendido y confirmar que no hay `mediaUrl` ni descarga.
+- **Respuesta desde el panel con texto**: la del 17/10 no se puede auditar porque el log del
+  backend fue recreado. Repetirla con el visor encendido para ver el ida y vuelta completo
+  (saliente del panel → Baileys → eco `fromMe` → espejo de vuelta), que es el caso del bucle.
+- **Audio**: sigue sin transcripción (`content: '[Audio]'`).
+- **Video**: `videoMessage` entra al log crudo pero el parser no lo maneja.
+
+---
 
 ### 12.3 Datos de documentación desactualizados
 
