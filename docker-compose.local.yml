@@ -39,8 +39,8 @@ services:
       IA_SERVICE_URL: http://ia_service:8000
       ERP_SERVICE_URL: http://erp_service:8001
       DASHWHAT_URL: http://dashwhat_mock:8880
-      # Chatwoot NO corre en local: las rutas que lo usan fallan con error de DNS.
-      CHATWOOT_URL: http://chatwoot:3000
+      # Mock de Chatwoot (tools/mock-chatwoot/): emula la API para tests y dev local.
+      CHATWOOT_URL: http://chatwoot_mock:3000
       CHATWOOT_ACCOUNT_ID: 1
       CHATWOOT_INBOX_IDENTIFIER: local-dev
       CHATWOOT_API_TOKEN: local-dev
@@ -49,6 +49,7 @@ services:
       - ia_service
       - erp_service
       - mongo
+      - chatwoot_mock
 
   # erp_service REAL reemplazado por un MOCK en memoria (ver tools/mock-erp/).
   # En local no hay ERPNext: el erp-service real arranca pero todas sus llamadas
@@ -94,6 +95,18 @@ services:
       - ./backend/backend/tests:/static:ro
     environment:
       STATIC_DIR: /static
+
+  # Mock de Chatwoot (ver tools/mock-chatwoot/). Emula la API de Chatwoot
+  # para probar agrupación de conversaciones, dirección y anti-bucle.
+  chatwoot_mock:
+    build: ./tools/mock-chatwoot
+    container_name: chatwoot_mock_local
+    restart: "no"
+    ports:
+      - "3005:3000"
+    environment:
+      PORT: "3000"
+      BACKEND_WEBHOOK_URL: http://backend:3000/api/chatwoot/webhook
 
   # Solo local: el backend hace process.exit(1) si no conecta a Mongo.
   # Se usa 4.4 y NO la 8: MongoDB ≥5 exige instrucciones AVX y el CPU de esta PC
