@@ -16,6 +16,19 @@ arquitectura). El detalle con evidencia está en `docs/borrador-cambios-arquitec
 Apagado de los visores: `LOG_RAW_PAYLOADS=false` / `LOG_RAW_MESSAGES=false` en el bloque
 `environment` del compose + deploy, o revirtiendo el default en el código.
 
+## Regla operativa (medida el 19/10, no ignorar)
+
+**Responder desde el panel de Chatwoot NO ejecuta los gatillos.** Solo manda texto al cliente
+(`chatwoot.routes.js` → `sendClientMessage`). El gatillo de pedido
+(`order.handler.js:16`: `isFromMe && textContent.startsWith('Entonces te agendo:')`) vive en
+el camino de los mensajes que entran por Baileys.
+
+- Para **agendar/modificar un pedido o usar un comando**, escribirlo **desde el WhatsApp de
+  la línea** en el chat del cliente. Desde el panel *parece* que se agendó y no pasa nada.
+- En el panel, los mensajes que Voraz mandó **por WhatsApp** se ven como si los hubiera
+  escrito el cliente (`message_type=0`). Solo lo escrito **dentro del panel** figura como
+  saliente. No confiar en la columna de quién habló hasta que se corrija el §5-§6.
+
 ## Lecturas rápidas
 
 ```bash

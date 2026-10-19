@@ -455,6 +455,67 @@ necesitar el bug de `inbox_id`.
 
 ---
 
+### 12.7 Auditoría en vivo del 19/10 (respuesta desde el panel, con el visor encendido)
+
+Conversación real medida: **conv #462**, contacto `131722469466362@lid`, pedido de 100 combos
+premium para el día siguiente, 223.000 Gs, pago al entregador, factura con RUC.
+
+**Lo que funciona (verificado punta a punta):**
+
+```
+18:19:45.898  [Chatwoot Webhook] Mensaje saliente de Chatwoot hacia 131722469466362@lid
+18:19:46      [main.js] Respuesta enviada exitosamente a 131722469466362@lid
+```
+
+El webhook dispara, resuelve el JID del **cliente** (no el de la línea propia) y el mensaje
+llega a WhatsApp. El eco **no** vuelve como mensaje duplicado en Chatwoot, y **no** se
+reprocesa como mensaje de cliente: **no se creó ningún pedido duplicado** (ERPNext no tiene
+ningún `Sales Order` posterior al `SAL-ORD-2026-00928` del 16/10).
+
+**DEFECTO NUEVO Y CARO: responder desde el panel NO ejecuta los gatillos.** El texto
+`"Entonces te agendo: …"` enviado desde el panel **no creó el pedido**:
+
+```js
+// services/message_events/order.handler.js:16
+if (isFromMe && textContent.startsWith('Entonces te agendo:')) {
+```
+
+El gatillo vive en el camino de los mensajes que entran por Baileys. El webhook de Chatwoot
+solo hace `sendClientMessage(targetJid, content)` (`chatwoot.routes.js`): **manda el texto y
+nada más**. Cualquier comando (agendar, modificar, `/hoy`, `/cobrar`) escrito en el panel es
+texto plano para el cliente. El cliente queda convencido de que está agendado y el pedido no
+existe en el sistema.
+
+Consecuencia para la decisión de arquitectura: **el panel no puede ser la superficie de
+mando hasta que el camino del webhook invoque el mismo procesador de eventos**. La vía que
+hoy crea el pedido es escribirlo desde el WhatsApp de la línea (el eco llega con
+`fromMe=true` y ahí sí dispara el handler).
+
+**Defecto de dirección medido, ahora con números de mensaje.** De 33 mensajes de esa
+conversación, **9 son propios** (`fromMe=true`) y en el panel **solo uno figura como
+saliente** (el del panel). Los otros propios entraron como `message_type=0`:
+
+| # | Texto | Realidad |
+|---|---|---|
+| 2576 | `198+25... 223 mil gs` | **propio** (cotización de la casa) |
+| 2579 | `para factrua pasame ruc y nomber` | **propio** |
+| 2580 | `[Reacción: 👍]` | **propio** |
+| 2582 | `tu nombre?` | **propio** |
+| 2584 | `agendado. gracias` | **propio** |
+
+Anteriores de la misma conversación, también propios y también mal etiquetados:
+`necesito ubicacion`, `para las 8 recien los delivery`, `Hola, buenas`, `hola.`.
+
+**Cómo leer el panel hoy:** todo lo que sale de la línea de Voraz **por WhatsApp** se
+publica como "entrante". Solo lo que se escribe **en el panel** sale bien como saliente. Es
+decir: la bandeja confunde quién dijo qué, y con un pedido grande en curso eso ya es un
+riesgo operativo, no estético.
+
+**Detalle adicional:** las reacciones llegan a `OrderHandler` como contenido
+(`"[Reacción: 👍]"`), o sea que entran al flujo de análisis/pedido sin ser texto útil.
+
+---
+
 ### 12.3 Datos de documentación desactualizados
 
 - El disco de la VM está al **50% (29 G libres de 58 G)**, no al "85% / 29 G" que dicen
