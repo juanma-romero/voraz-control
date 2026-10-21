@@ -29,7 +29,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 
 PORT = int(os.getenv("PORT", "8001"))
 # Latencia artificial (ms): útil para ver estados "cargando" en el simulador.
@@ -41,7 +41,7 @@ CATALOG = {
     "zero": ("Coca Zero 2 lts", 15000), "deli": ("Delivery", 5000),
     "capre": ("Canastita Capresse", 12000), "empaJYQ": ("Empanadita de Jamon y Queso", 8000),
     "empaPollo": ("Empanadita de Pollo", 8000), "milaPollo": ("Milanesa de Pollo", 10000),
-    "pizeta": ("Pizeta", 12000), "mini": ("Mini Burger", 12000),
+    "pizeta": ("Pizeta", 12000), "pizeta-final": ("Pizeta", 12000), "mini": ("Mini Burger", 12000),
     "empaCarne": ("Empanadita de Carne", 8000), "sandwPollo": ("Sandwich de Mila de Pollo", 12000),
     "milaCarne": ("Milanesita de Carne", 10000), "pre": ("Combo Premium", 25000),
     "sprite": ("Sprite 2lts", 12000), "coca3": ("Coca 3 lts", 20000),
@@ -264,16 +264,33 @@ class Handler(BaseHTTPRequestHandler):
 
                 m = re.match(r"^/api/orders/([^/]+)/pay$", p)
                 if m:
-                    oid = m.group(1)
-                    if "@" in oid:  # el comando /cobrar puede pasar un JID
-                        o = latest_active(oid)
-                        if not o:
-                            return self._send(400, {"detail": f"El cliente {oid} no tiene pedidos activos."})
-                        oid = o["name"]
+                    raw_id = unquote(m.group(1)).strip()
+                    upper_id = raw_id.upper()
+                    is_so = upper_id.startswith("SAL") or ("-" in raw_id and not "@" in raw_id and any(c.isdigit() for c in raw_id) and any(c.isalpha() for c in raw_id))
+                    if is_so and raw_id in STATE["orders"]:
+                        oid = raw_id
                     else:
-                        o = STATE["orders"].get(oid)
-                        if not o:
-                            return self._send(400, {"detail": f"No existe el pedido {oid}"})
+                        # Resolver por cliente (JID, teléfono o nombre)
+                        clean_phone = ''.join(c for c in raw_id.split('@')[0] if c.isdigit())
+                        matching_orders = []
+                        for ord_val in STATE["orders"].values():
+                            if ord_val.get("status") != "active":
+                                continue
+                            cust = ord_val.get("customer", "")
+                            cname = ord_val.get("contactName", "")
+                            # Match JID o teléfono
+                            if "@" in raw_id and cust == raw_id:
+                                matching_orders.append(ord_val)
+                            elif len(clean_phone) >= 6 and clean_phone in cust:
+                                matching_orders.append(ord_val)
+                            elif raw_id.lower() in cname.lower() or raw_id.lower() in cust.lower():
+                                matching_orders.append(ord_val)
+                        
+                        if not matching_orders:
+                            return self._send(400, {"detail": f"No se encontró ningún cliente o pedido activo para '{raw_id}'."})
+                        # Tomar el último activo
+                        matching_orders.sort(key=lambda o: o["name"])
+                        oid = matching_orders[-1]["name"]
                     STATE["pay_counter"] += 1
                     return self._send(200, {
                         "success": True,
