@@ -130,6 +130,7 @@ El plan de arquitectura definitivo está abierto en `docs/borrador-cambios-arqui
     - **Saludo inicial y seguimiento:** saludo interactivo ofreciendo listado de productos/catálogo y pregunta de seguimiento para no perder leads fríos.
     - **Información operativa:** responder automáticamente dudas de horarios de atención y ubicación física del local.
     - **Detección de completitud de pedido:** identificar activamente en la conversación cuando ya se tienen los datos esenciales (día/hora de entrega, productos y cantidades, modalidad delivery/retiro) para proponer la creación/agendamiento del pedido.
+22. **Confirmación manual de pedidos pendientes por el admin (bypass de confirmación del cliente).** Habilitar un comando o mecanismo desde WhatsApp / chat de administración (ej. `/confirmar` o responder con gatillo) para que el admin pueda forzar la creación inmediata en ERPNext de un pedido que está en `pending_orders`, sin depender de que el cliente responda con un mensaje que la IA clasifique como `CONFIRMAR` (útil si el cliente confirma por llamada telefónica, audio o con modismos ambiguos).
 
 ## Bugs abiertos
 
