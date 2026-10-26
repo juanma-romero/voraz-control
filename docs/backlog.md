@@ -182,6 +182,14 @@ El plan de arquitectura definitivo está abierto en `docs/borrador-cambios-arqui
       Eliminar `syncCustomerWithERP()` del flujo de recepción de mensajes para no ensuciar ERPNext
       con contactos basura (`@lid`, `.`) ante simples consultas de precio; el cliente contable debe
       crearse/sincronizarse únicamente cuando confirma un pedido (`createOrder` en `order.service.js`).
+      **Agravante detectado 2026-10-26 (mismo problema, otra cara):** el `Customer` que *sí* se crea
+      queda **identificado por el LID** — el pedido `SAL-ORD-2026-00976` (363.000 ₲, 26/10) tiene
+      `customer = 78143238971633@lid` — y `mobile_no` guarda el LID, **no el teléfono**. Hay cientos
+      de clientes así; el nombre legible vive aparte en `customer_name` (ej. `100382177022061@lid`
+      → «Luz D.»). Consecuencia: al facturar o revisar un pedido se ve un número opaco, y no queda
+      el teléfono real para contactar al cliente. Al encarar esto hay que decidir la **clave del
+      `Customer`** (teléfono en E.164 o LID) y persistir el par LID↔teléfono que Baileys ya entrega
+      (`remoteJidAlt`) — es el mismo eje que la Idea #16 (§ "Resolución incompleta de identidad").
 - [ ] **Persistir campos ricos en `saveMessage()`** (`services/mongo.service.js`). Guardar `mediaUrl`,
       `location` (`latitude`, `longitude`, `name`, `address`) y `quotedMessage` que hoy
       `dashWhat2/api/messageParser.js` ya extrae pero `mongo.service.js` descarta al insertar en
